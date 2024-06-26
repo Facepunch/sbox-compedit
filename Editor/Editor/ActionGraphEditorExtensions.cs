@@ -72,7 +72,7 @@ public static class ActionGraphEditorExtensions
 
 				if ( needsRebuild )
 				{
-					ComponentDefinition.RebuildAll();
+					compDef.Build();
 				}
 			}, autoFocus: true );
 		};
@@ -145,7 +145,7 @@ public static class ActionGraphEditorExtensions
 
 				CreatePropertyLink( property );
 
-				ComponentDefinition.RebuildAll();
+				componentDefinition.Build();
 			} );
 		};
 
@@ -194,7 +194,7 @@ public static class ActionGraphEditorExtensions
 
 						var method = compDef.AddMethod( subGraph );
 
-						ComponentDefinition.RebuildAll();
+						compDef.Build();
 
 						var node = eventArgs.ActionGraph.AddNode( EditorNodeLibrary.CallMethod );
 

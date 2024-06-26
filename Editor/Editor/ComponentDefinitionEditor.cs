@@ -100,7 +100,7 @@ public class ComponentDefinitionEditor : BaseResourceEditor<ComponentDefinition>
 
 		property.Title = property.Name.ToTitleCase();
 
-		ComponentDefinition.RebuildAll();
+		Resource.Build();
 
 		_propertyList.Initialize( Serialized.GetProperty( nameof( ComponentDefinition.Properties ) ) );
 	}
@@ -121,7 +121,7 @@ public class ComponentDefinitionEditor : BaseResourceEditor<ComponentDefinition>
 
 		method.Body!.Title = method.Name.ToTitleCase();
 
-		ComponentDefinition.RebuildAll();
+		Resource.Build();
 	}
 
 	private void AddEventDialog( Button source )
@@ -130,7 +130,7 @@ public class ComponentDefinitionEditor : BaseResourceEditor<ComponentDefinition>
 
 		evnt.Title = evnt.Name.ToTitleCase();
 
-		ComponentDefinition.RebuildAll();
+		Resource.Build();
 	}
 
 	private void OverrideMethodDialog( Button source )
@@ -146,7 +146,7 @@ public class ComponentDefinitionEditor : BaseResourceEditor<ComponentDefinition>
 
 				method.Body!.Title = name.ToTitleCase();
 
-				ComponentDefinition.RebuildAll();
+				Resource.Build();
 			} );
 		}
 
@@ -174,7 +174,7 @@ public class ComponentDefinitionEditor : BaseResourceEditor<ComponentDefinition>
 
 	protected override void SavedToDisk()
 	{
-		ComponentDefinition.RebuildAll();
+		Resource.Build();
 
 		_lastBuildNumber = ComponentDefinition.BuildNumber;
 	}

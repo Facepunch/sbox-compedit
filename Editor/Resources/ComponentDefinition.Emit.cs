@@ -1,5 +1,10 @@
 ﻿using System;
+using System.IO;
 using System.Text.Json.Serialization;
+using Editor.CodeEditors;
+using Microsoft.CodeAnalysis;
+using Sandbox.Internal;
+using static Sandbox.PhysicsContact;
 
 namespace Sandbox;
 
@@ -12,17 +17,7 @@ partial class ComponentDefinition
 	private Type? _type;
 	private int _lastBuiltHash;
 
-	[Hide, JsonIgnore]
-	public Type GeneratedType
-	{
-		get
-		{
-			if ( _type is not null ) return _type;
-
-			Build();
-			return _type!;
-		}
-	}
+	[Hide, JsonIgnore] public Type? GeneratedType => GlobalGameNamespace.TypeLibrary.GetType( ResourcePath )?.TargetType;
 
 	protected override void PostLoad()
 	{
@@ -69,16 +64,136 @@ partial class ComponentDefinition
 		return hashCode.ToHashCode();
 	}
 
-	public static void RebuildAll()
+	public string ClassName => $"Component_{ResourceId:x8}";
+
+	private static string TypeRef<T>()
 	{
-		Build();
+		return TypeRef( typeof(T) );
 	}
 
-	private static bool _isBuilding;
-
-	private static void Build()
+	private static string TypeRef( Type type )
 	{
+		if ( type.IsArray || type.IsGenericType || type.IsByRef || type.IsPointer || type.IsNested )
+		{
+			throw new NotImplementedException();
+		}
 
+		if ( type.Namespace is null )
+		{
+			return $"global::{type.Name}";
+		}
+
+		return $"global::{type.Namespace}.{type.Name}";
+	}
+
+	private static string StringLiteral( string value )
+	{
+		return $"@\"{value.Replace( "\"", "\"\"" )}\"";
+	}
+
+	public void Build()
+	{
+		var project = Project.Current;
+
+		var outputPath = Path.Combine( project.GetCodePath(), "Generated", $"{ResourcePath}.cs" );
+		var outputDir = Path.GetDirectoryName( outputPath );
+
+		if ( !Directory.Exists( outputDir ) )
+		{
+			Directory.CreateDirectory( outputDir );
+		}
+
+		var ns = "Sandbox.Generated";
+
+		if ( project.Config.TryGetMeta( "Compiler", out Compiler.Configuration compilerConfig ) && !string.IsNullOrEmpty( compilerConfig.RootNamespace ) )
+		{
+			ns = $"{compilerConfig.RootNamespace}.Generated";
+		}
+
+		using var writer = new StreamWriter( File.Create( outputPath ) );
+
+		writer.WriteLine( $"// GENERATED FROM \"{ResourcePath}\"" );
+		writer.WriteLine( "// DO NOT EDIT!" );
+		writer.WriteLine();
+
+		writer.WriteLine($"namespace {ns};");
+		writer.WriteLine();
+
+		WriteAttributes( writer );
+
+		writer.WriteLine($"public sealed class {ClassName} : {TypeRef<Component>()}");
+		writer.WriteLine("{");
+
+		foreach ( var propertyDef in Properties )
+		{
+			WriteProperty( writer, propertyDef );
+			writer.WriteLine();
+		}
+
+		writer.WriteLine( "}" );
+		writer.WriteLine();
+	}
+
+	private void WriteAttributes( TextWriter writer )
+	{
+		writer.WriteLine( $"[{TypeRef<ClassNameAttribute>()}( {StringLiteral( ResourcePath )} )]" );
+		writer.WriteLine( $"[{TypeRef<SourceLocationAttribute>()}( {StringLiteral( ResourcePath )}, 0 )]" );
+
+		WriteDisplayAttributes( writer, Display, "" );
+	}
+
+	private static void WriteDisplayAttributes( TextWriter writer, DisplayInfo display, string indent = "    " )
+	{
+		if ( !string.IsNullOrEmpty( display.Name ) )
+		{
+			writer.WriteLine( $"{indent}[{TypeRef<TitleAttribute>()}( {StringLiteral( display.Name )} )]" );
+		}
+
+		if ( !string.IsNullOrEmpty( display.Description ) )
+		{
+			writer.WriteLine( $"{indent}[{TypeRef<DescriptionAttribute>()}( {StringLiteral( display.Description )} )]" );
+		}
+
+		if ( !string.IsNullOrEmpty( display.Group ) )
+		{
+			writer.WriteLine( $"{indent}[{TypeRef<GroupAttribute>()}( {StringLiteral( display.Group )} )]" );
+		}
+
+		if ( !string.IsNullOrEmpty( display.Icon ) )
+		{
+			writer.WriteLine( $"{indent}[{TypeRef<IconAttribute>()}( {StringLiteral( display.Icon )} )]" );
+		}
+	}
+
+	private void WriteProperty( TextWriter writer, ComponentPropertyDefinition propertyDef )
+	{
+		writer.WriteLine( $"    [{TypeRef<PropertyAttribute>()}]" );
+
+		WriteDisplayAttributes( writer, propertyDef.Display );
+
+		switch ( propertyDef.Access )
+		{
+			case PropertyAccess.Public or PropertyAccess.PublicGet:
+				writer.Write( "    public " );
+				break;
+			case PropertyAccess.Private:
+				writer.Write( "    private " );
+				break;
+		}
+
+		writer.Write( $"{TypeRef( propertyDef.Type )} {propertyDef.Name} {{ " );
+
+		switch ( propertyDef.Access )
+		{
+			case PropertyAccess.PublicGet:
+				writer.Write( "get; private set;" );
+				break;
+			default:
+				writer.Write( "get; set;" );
+				break;
+		}
+
+		writer.WriteLine( " }" );
 	}
 }
 
@@ -153,9 +268,4 @@ partial class ComponentEventDefinition
 
 		return hashCode.ToHashCode();
 	}
-}
-
-file static class Helpers
-{
-
 }

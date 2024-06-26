@@ -98,7 +98,7 @@ public class ComponentMethodList : GridLayout
 		{
 			if ( _targetList.Remove( property ) )
 			{
-				ComponentDefinition.RebuildAll();
+				_editor.Resource.Build();
 			}
 		} ) );
 	}
