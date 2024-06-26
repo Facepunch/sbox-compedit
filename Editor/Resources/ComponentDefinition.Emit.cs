@@ -1,10 +1,12 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Reflection;
 using System.Text.Json.Serialization;
-using Editor.CodeEditors;
-using Microsoft.CodeAnalysis;
+using Facepunch.ActionGraphs;
+using Sandbox.Diagnostics;
 using Sandbox.Internal;
-using static Sandbox.PhysicsContact;
 
 namespace Sandbox;
 
@@ -17,13 +19,13 @@ partial class ComponentDefinition
 	private Type? _type;
 	private int _lastBuiltHash;
 
-	[Hide, JsonIgnore] public Type? GeneratedType => GlobalGameNamespace.TypeLibrary.GetType( ResourcePath )?.TargetType;
+	[Hide, JsonIgnore] public Type? GeneratedType => _type ??= GlobalGameNamespace.TypeLibrary.GetType( ResourcePath )?.TargetType;
 
 	protected override void PostLoad()
 	{
 		UpdateMembers();
 
-		if ( _type is null || _lastBuiltHash != GetDefinitionHash() )
+		if ( GeneratedType is null || _lastBuiltHash != GetDefinitionHash() )
 		{
 			Build();
 		}
@@ -33,7 +35,7 @@ partial class ComponentDefinition
 	{
 		UpdateMembers();
 
-		if ( _type is null || _lastBuiltHash != GetDefinitionHash() )
+		if ( GeneratedType is null || _lastBuiltHash != GetDefinitionHash() )
 		{
 			Build();
 		}
@@ -78,6 +80,11 @@ partial class ComponentDefinition
 			throw new NotImplementedException();
 		}
 
+		if ( type == typeof(void) )
+		{
+			return "void";
+		}
+
 		if ( type.Namespace is null )
 		{
 			return $"global::{type.Name}";
@@ -93,6 +100,8 @@ partial class ComponentDefinition
 
 	public void Build()
 	{
+		_lastBuiltHash = GetDefinitionHash();
+
 		var project = Project.Current;
 
 		var outputPath = Path.Combine( project.GetCodePath(), "Generated", $"{ResourcePath}.cs" );
@@ -127,6 +136,12 @@ partial class ComponentDefinition
 		foreach ( var propertyDef in Properties )
 		{
 			WriteProperty( writer, propertyDef );
+			writer.WriteLine();
+		}
+
+		foreach ( var methodDef in Methods )
+		{
+			WriteMethod( writer, methodDef );
 			writer.WriteLine();
 		}
 
@@ -194,6 +209,83 @@ partial class ComponentDefinition
 		}
 
 		writer.WriteLine( " }" );
+	}
+
+	private void WriteMethod( TextWriter writer, ComponentMethodDefinition methodDef )
+	{
+		WriteDisplayAttributes( writer, methodDef.Display );
+
+		var baseMethod = methodDef.Override
+			? typeof( Component ).GetMethod( methodDef.Name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance )
+			: null;
+
+		var binding = baseMethod is not null
+			? NodeBinding.FromMethodBase( baseMethod, EditorNodeLibrary )
+			: methodDef.GetBinding();
+
+		var parameters = new List<string>();
+		var arguments = new List<string>();
+
+		foreach ( var inputDef in binding.Inputs.Where( x => x is { IsSignal: false, IsTarget: false } ) )
+		{
+			parameters.Add( $"{TypeRef( inputDef.Type )} {inputDef.Name}" );
+			arguments.Add( inputDef.Name );
+		}
+
+		foreach ( var outputDef in binding.Outputs.Where( x => x is { IsSignal: false } ) )
+		{
+			parameters.Add( $"out {TypeRef( outputDef.Type )} {outputDef.Name}" );
+			arguments.Add( $"out {outputDef.Name}" );
+		}
+
+		var delegateTypeName = $"{methodDef.Name}_Delegate";
+		var delegateFieldName = $"{methodDef.Name}_Body";
+
+		writer.WriteLine( $"    private delegate {TypeRef( typeof(void) )} {delegateTypeName}( {string.Join( ", ", parameters )} );" );
+		writer.WriteLine( $"    private static {delegateTypeName} {delegateFieldName} = {TypeRef( typeof( Json ) )}.{nameof(Json.Deserialize)}<{delegateTypeName}>( {StringLiteral( methodDef.SerializedBody!.ToJsonString() )} );" );
+
+		if ( baseMethod is not null )
+		{
+			if ( baseMethod.IsPublic )
+			{
+				writer.Write( "    public ");
+			}
+			else if ( baseMethod.IsFamily )
+			{
+				writer.Write( "    protected " );
+			}
+			else
+			{
+				writer.Write( "    private " );
+			}
+
+			writer.Write( "override " );
+
+			Assert.AreEqual( typeof(void), baseMethod.ReturnType );
+		}
+		else
+		{
+			if ( binding.Kind == NodeKind.Expression )
+			{
+				writer.WriteLine($"[{TypeRef<PureAttribute>()}]");
+			}
+
+			switch ( methodDef.Access )
+			{
+				case MethodAccess.Public:
+					writer.Write( "    public " );
+					break;
+
+				case MethodAccess.Private:
+					writer.Write( "    private " );
+					break;
+			}
+		}
+
+		writer.WriteLine( $"{TypeRef( typeof( void ) )} {methodDef.Name}( {string.Join( ", ", parameters )} )" );
+		writer.WriteLine( "    {" );
+		writer.WriteLine($"        {delegateFieldName}( {string.Join( ", ", arguments )} );");
+		writer.WriteLine( "    }" );
 	}
 }
 
