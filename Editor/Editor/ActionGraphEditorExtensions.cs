@@ -237,13 +237,15 @@ public static class ActionGraphEditorExtensions
 		if ( eventArgs.Handled ) return;
 		if ( eventArgs.Plug.GetInputPropertyDefinition() is not {} propertyDef ) return;
 
-		eventArgs.Text = propertyDef.Name;
+		eventArgs.Text = propertyDef.Title ?? propertyDef.Name;
 		eventArgs.Icon = "logout";
 		eventArgs.Handled = true;
 	}
 
 	public static PropertyNodeType CreatePropertyNodeType( this ComponentPropertyDefinition property )
 	{
-		throw new NotImplementedException();
+		return new PropertyNodeType( property.ComponentDefinition.GeneratedType!,
+			property.Name, property.Type,
+			property.Display, true, property.InitOnly );
 	}
 }
