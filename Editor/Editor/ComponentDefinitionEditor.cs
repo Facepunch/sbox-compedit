@@ -15,7 +15,7 @@ public class ComponentDefinitionEditor : BaseResourceEditor<ComponentDefinition>
 	private readonly ControlSheet _displaySheet;
 	private readonly ComponentPropertyList _propertyList;
 	private readonly ComponentMethodList _methodList;
-	private readonly ComponentEventList _eventList;
+	// private readonly ComponentEventList _eventList;
 
 	private int _lastBuildNumber;
 
@@ -28,11 +28,11 @@ public class ComponentDefinitionEditor : BaseResourceEditor<ComponentDefinition>
 		var (displayGroup, _) = AddGroup( "Display", "description" );
 		var (propertiesGroup, propertiesExpandGroup) = AddGroup( "Properties", "format_list_bulleted" );
 		var (methodsGroup, methodsExpandGroup) = AddGroup( "Methods", "directions_run" );
-		var (eventsGroup, eventsExpandGroup ) = AddGroup( "Events", "bolt" );
+		// var (eventsGroup, eventsExpandGroup ) = AddGroup( "Events", "bolt" );
 
 		_propertiesExpandGroup = propertiesExpandGroup;
 		_methodsExpandGroup = methodsExpandGroup;
-		_eventsExpandGroup = eventsExpandGroup;
+		// _eventsExpandGroup = eventsExpandGroup;
 
 		displayGroup.Layout = _displaySheet = new ControlSheet();
 		
@@ -76,21 +76,21 @@ public class ComponentDefinitionEditor : BaseResourceEditor<ComponentDefinition>
 			methodsGroup.Layout.AddStretchCell( 1 );
 		}
 
-		{
-			eventsGroup.Layout = Layout.Column();
-			eventsGroup.Layout.Add( _eventList = new ComponentEventList( this ) );
+		//{
+		//	eventsGroup.Layout = Layout.Column();
+		//	eventsGroup.Layout.Add( _eventList = new ComponentEventList( this ) );
 
-			// Add property button
-			var row = eventsGroup.Layout.AddRow();
-			row.AddStretchCell();
-			row.Margin = 16;
-			var button = row.Add( new Button.Primary( "Add Event", "add" ) );
-			button.MinimumWidth = 320;
-			button.Clicked = () => AddEventDialog( button );
-			row.AddStretchCell();
+		//	// Add property button
+		//	var row = eventsGroup.Layout.AddRow();
+		//	row.AddStretchCell();
+		//	row.Margin = 16;
+		//	var button = row.Add( new Button.Primary( "Add Event", "add" ) );
+		//	button.MinimumWidth = 320;
+		//	button.Clicked = () => AddEventDialog( button );
+		//	row.AddStretchCell();
 
-			eventsGroup.Layout.AddStretchCell( 1 );
-		}
+		//	eventsGroup.Layout.AddStretchCell( 1 );
+		//}
 	}
 
 	private void AddPropertyDialog( Button source )
@@ -155,19 +155,19 @@ public class ComponentDefinitionEditor : BaseResourceEditor<ComponentDefinition>
 
 	protected override void Initialize( Asset asset, ComponentDefinition resource )
 	{
-		_lastBuildNumber = ComponentDefinition.BuildNumber;
+		_lastBuildNumber = Resource.BuildNumber;
 
 		Serialized = EditorTypeLibrary.GetSerializedObject( resource );
 
 		_displaySheet.Clear( true );
-		_displaySheet.AddRow( Serialized.GetProperty( nameof( ComponentDefinition.Title ) ) );
-		_displaySheet.AddRow( Serialized.GetProperty( nameof( ComponentDefinition.Description ) ) );
-		_displaySheet.AddRow( Serialized.GetProperty( nameof( ComponentDefinition.Group ) ) );
-		_displaySheet.AddRow( Serialized.GetProperty( nameof( ComponentDefinition.Icon ) ) );
+		_displaySheet.AddRow( Serialized.GetProperty( nameof(ComponentDefinition.Title) ) );
+		_displaySheet.AddRow( Serialized.GetProperty( nameof(ComponentDefinition.Description) ) );
+		_displaySheet.AddRow( Serialized.GetProperty( nameof(ComponentDefinition.Group) ) );
+		_displaySheet.AddRow( Serialized.GetProperty( nameof(ComponentDefinition.Icon) ) );
 
-		_propertyList.Initialize( Serialized.GetProperty( nameof( ComponentDefinition.Properties ) ) );
-		_methodList.Initialize( Serialized.GetProperty( nameof( ComponentDefinition.Methods ) ) );
-		_eventList.Initialize( Serialized.GetProperty( nameof(ComponentDefinition.Events) ) );
+		_propertyList.Initialize( Serialized.GetProperty( nameof(ComponentDefinition.Properties) ) );
+		_methodList.Initialize( Serialized.GetProperty( nameof(ComponentDefinition.Methods) ) );
+		// _eventList.Initialize( Serialized.GetProperty( nameof(ComponentDefinition.Events) ) );
 
 		Serialized.OnPropertyChanged += NoteChanged;
 	}
@@ -176,13 +176,13 @@ public class ComponentDefinitionEditor : BaseResourceEditor<ComponentDefinition>
 	{
 		Resource.Build();
 
-		_lastBuildNumber = ComponentDefinition.BuildNumber;
+		_lastBuildNumber = Resource.BuildNumber;
 	}
 
 	[EditorEvent.Frame]
 	private void Frame()
 	{
-		if ( _lastBuildNumber != ComponentDefinition.BuildNumber )
+		if ( _lastBuildNumber != Resource.BuildNumber )
 		{
 			Initialize( Asset, Resource );
 		}
@@ -226,7 +226,7 @@ public class ComponentDefinitionEditor : BaseResourceEditor<ComponentDefinition>
 		_eventsExpandGroup.SetOpenState( true );
 		_eventsExpandGroup.SetHeight();
 
-		_eventList.SelectEvent( evnt );
+		// _eventList.SelectEvent( evnt );
 	}
 
 	public override void SelectMember( string name )

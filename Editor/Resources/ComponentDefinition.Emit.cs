@@ -16,7 +16,8 @@ namespace Sandbox;
 
 partial class ComponentDefinition
 {
-	public static int BuildNumber { get; private set; } = 100;
+	[JsonIgnore]
+	public int BuildNumber { get; private set; } = 100;
 
 	private Type? _type;
 	private int _lastBuiltHash;
@@ -154,9 +155,12 @@ partial class ComponentDefinition
 	{
 		_lastBuiltHash = GetDefinitionHash();
 
+		++BuildNumber;
+
 		var project = Project.Current;
 
 		var outputPath = Path.Combine( project.GetCodePath(), "Generated", $"{ResourcePath}.cs" );
+		var tempPath = $"{outputPath}.tmp";
 		var outputDir = Path.GetDirectoryName( outputPath )!;
 
 		if ( !Directory.Exists( outputDir ) )
@@ -171,34 +175,44 @@ partial class ComponentDefinition
 			ns = $"{compilerConfig.RootNamespace}.Generated";
 		}
 
-		using var writer = new StreamWriter( File.Create( outputPath ) );
-
-		writer.WriteLine( $"// GENERATED FROM \"{ResourcePath}\"" );
-		writer.WriteLine( "// DO NOT EDIT!" );
-		writer.WriteLine();
-
-		writer.WriteLine($"namespace {ns};");
-		writer.WriteLine();
-
-		WriteAttributes( writer );
-
-		writer.WriteLine($"public sealed class {ClassName} : {TypeRef<Component>()}");
-		writer.WriteLine("{");
-
-		foreach ( var propertyDef in Properties )
+		using ( var writer = new StreamWriter( File.Create( tempPath ) ) )
 		{
-			WriteProperty( writer, propertyDef );
+			writer.WriteLine( $"// GENERATED FROM \"{ResourcePath}\"" );
+			writer.WriteLine( "// DO NOT EDIT!" );
+			writer.WriteLine();
+
+			writer.WriteLine( $"namespace {ns};" );
+			writer.WriteLine();
+
+			WriteAttributes( writer );
+
+			writer.WriteLine( $"public sealed class {ClassName} : {TypeRef<Component>()}" );
+			writer.WriteLine( "{" );
+
+			foreach ( var propertyDef in Properties )
+			{
+				WriteProperty( writer, propertyDef );
+				writer.WriteLine();
+			}
+
+			foreach ( var methodDef in Methods )
+			{
+				WriteMethod( writer, methodDef );
+				writer.WriteLine();
+			}
+
+			foreach ( var eventDef in Events )
+			{
+				WriteEvent( writer, eventDef );
+				writer.WriteLine();
+			}
+
+			writer.WriteLine( "}" );
 			writer.WriteLine();
 		}
 
-		foreach ( var methodDef in Methods )
-		{
-			WriteMethod( writer, methodDef );
-			writer.WriteLine();
-		}
-
-		writer.WriteLine( "}" );
-		writer.WriteLine();
+		File.Replace( tempPath, outputPath, null );
+		File.Delete( tempPath );
 	}
 
 	private void WriteAttributes( TextWriter writer )
@@ -371,6 +385,38 @@ partial class ComponentDefinition
 		writer.WriteLine();
 		writer.WriteLine( $"        {delegateFieldName}( {string.Join( ", ", arguments )} );" );
 		writer.WriteLine( "    }" );
+	}
+
+	private void WriteEvent( TextWriter writer, ComponentEventDefinition eventDef )
+	{
+		var binding = NodeBinding.Create(
+			new Facepunch.ActionGraphs.DisplayInfo( eventDef.Title ?? eventDef.Name, eventDef.Description,
+				eventDef.Group, eventDef.Icon ),
+			inputs: eventDef.Inputs );
+
+		var delegateParameters = new List<string>();
+		var methodParameters = new List<string>();
+		var arguments = new List<string>();
+
+		foreach ( var inputDef in binding.Inputs.Where( x => x is { IsSignal: false } ) )
+		{
+			var paramWriter = new StringWriter();
+
+			WriteDisplayAttributes( paramWriter, eventDef.Display, "" );
+
+			var parameter = $"{paramWriter.ToString().Replace( Environment.NewLine, "" )}{TypeRef( inputDef.Type )} {inputDef.Name}";
+
+			delegateParameters.Add( parameter );
+			methodParameters.Add( parameter );
+
+			arguments.Add( inputDef.Name );
+		}
+
+		var delegateTypeName = $"{eventDef.Name}_Delegate";
+
+		writer.WriteLine( $"    public delegate {TypeRef( typeof( void ) )} {delegateTypeName}( {string.Join( ", ", delegateParameters )} );" );
+
+		// TODO
 	}
 }
 
