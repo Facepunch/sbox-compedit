@@ -211,8 +211,7 @@ partial class ComponentDefinition
 			writer.WriteLine();
 		}
 
-		File.Replace( tempPath, outputPath, null );
-		File.Delete( tempPath );
+		File.Move( tempPath, outputPath, true );
 	}
 
 	private void WriteAttributes( TextWriter writer )
