@@ -105,7 +105,7 @@ partial class ComponentDefinition
 		var project = Project.Current;
 
 		var outputPath = Path.Combine( project.GetCodePath(), "Generated", $"{ResourcePath}.cs" );
-		var outputDir = Path.GetDirectoryName( outputPath );
+		var outputDir = Path.GetDirectoryName( outputPath )!;
 
 		if ( !Directory.Exists( outputDir ) )
 		{
@@ -257,10 +257,13 @@ partial class ComponentDefinition
 		}
 
 		var delegateTypeName = $"{methodDef.Name}_Delegate";
-		var delegateFieldName = $"{methodDef.Name}_Body";
+		var delegateFieldName = $"{methodDef.Name}_Body_Cached";
+		var delegatePropertyName = $"{methodDef.Name}_Body";
 
 		writer.WriteLine( $"    private delegate {TypeRef( typeof(void) )} {delegateTypeName}( {string.Join( ", ", delegateParameters )} );" );
-		writer.Write( $"    private static {delegateTypeName} {delegateFieldName} = " );
+		writer.WriteLine( $"    [{TypeRef<SkipHotloadAttribute>()}]" );
+		writer.WriteLine( $"    private static {delegateTypeName} {delegateFieldName};" );
+		writer.Write( $"    private static {delegateTypeName} {delegatePropertyName} => {delegateFieldName} ??= " );
 		writer.Write( $"{TypeRef( typeof(ActionGraphs.ActionGraphCache) )}.{nameof(ActionGraphs.ActionGraphCache.GetOrAdd)}<{ClassName}, {delegateTypeName}>" );
 		writer.WriteLine( $"( {StringLiteral( methodDef.SerializedBody!.ToJsonString() )} );" );
 
@@ -304,7 +307,7 @@ partial class ComponentDefinition
 
 		writer.WriteLine( $"{TypeRef( typeof( void ) )} {methodDef.Name}( {string.Join( ", ", methodParameters )} )" );
 		writer.WriteLine( "    {" );
-		writer.WriteLine($"        {delegateFieldName}( {string.Join( ", ", arguments )} );");
+		writer.WriteLine($"        {delegatePropertyName}( {string.Join( ", ", arguments )} );");
 		writer.WriteLine( "    }" );
 	}
 }

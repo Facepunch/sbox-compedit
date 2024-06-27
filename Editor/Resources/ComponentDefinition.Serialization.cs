@@ -6,7 +6,6 @@ using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Facepunch.ActionGraphs;
 using Sandbox.ActionGraphs;
-using Sandbox.Internal;
 using ActionGraphCache = Editor.ActionGraphCache;
 
 namespace Sandbox;
@@ -134,8 +133,6 @@ partial class ComponentMethodDefinition
 		}
 	}
 
-	public string CacheKey => $"{ComponentDefinition.ResourcePath}:{Name}";
-
 	private JsonNode? SerializeBody( ActionGraph? body )
 	{
 		if ( body is null )
@@ -147,7 +144,7 @@ partial class ComponentMethodDefinition
 
 		JsonObject node;
 
-		using ( ActionGraph.PushTarget( InputDefinition.Target( ComponentDefinition.GeneratedType ) ) )
+		using ( ActionGraph.PushTarget( InputDefinition.Target( ComponentDefinition.GeneratedType! ) ) )
 		{
 			node = JsonSerializer.SerializeToNode( body, EditorJsonOptions )!.AsObject();
 		}
@@ -167,7 +164,7 @@ partial class ComponentMethodDefinition
 			return null;
 		}
 
-		return ActionGraphCache.GetOrAdd( ComponentDefinition.GeneratedType, node, OverrideMethod is { } method
+		return ActionGraphCache.GetOrAdd( ComponentDefinition.GeneratedType!, node, OverrideMethod is { } method
 			? NodeBinding.FromMethodBase( method, EditorNodeLibrary )
 			: null );
 	}

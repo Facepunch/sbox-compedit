@@ -79,7 +79,7 @@ public partial class ComponentDefinition : GameResource
 	{
 		var inputSignal = InputDefinition.Signal();
 		var outputSignal = OutputDefinition.Signal();
-		var targetInput = InputDefinition.Target( GeneratedType );
+		var targetInput = InputDefinition.Target( GeneratedType! );
 
 		body.SetParameters( new[] { inputSignal, targetInput }, new [] { outputSignal } );
 	}
@@ -277,7 +277,7 @@ public partial class ComponentMethodDefinition : IMemberNameProvider
 
 		return forHash
 			? baseBinding
-			: baseBinding.With( InputDefinition.Target( ComponentDefinition.GeneratedType ) );
+			: baseBinding.With( InputDefinition.Target( ComponentDefinition.GeneratedType! ) );
 	}
 
 	[Hide]
@@ -332,7 +332,7 @@ public partial class ComponentMethodDefinition : IMemberNameProvider
 		{
 			body.SetParameters( NodeBinding
 				.FromMethodBase( OverrideMethod!, EditorNodeLibrary )
-				.With( InputDefinition.Target( ComponentDefinition.GeneratedType ) ) );
+				.With( InputDefinition.Target( ComponentDefinition.GeneratedType! ) ) );
 		}
 	}
 
