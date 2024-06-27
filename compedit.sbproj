@@ -8,5 +8,7 @@
   "Resources": null,
   "PackageReferences": [],
   "EditorReferences": null,
-  "Metadata": {}
+  "Metadata": {
+    "CsProjName": ""
+  }
 }
