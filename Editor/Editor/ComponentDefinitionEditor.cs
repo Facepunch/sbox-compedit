@@ -10,7 +10,7 @@ public class ComponentDefinitionEditor : BaseResourceEditor<ComponentDefinition>
 
 	private ExpandGroup _propertiesExpandGroup;
 	private ExpandGroup _methodsExpandGroup;
-	private ExpandGroup _eventsExpandGroup;
+	// private ExpandGroup _eventsExpandGroup;
 
 	private readonly ControlSheet _displaySheet;
 	private readonly ComponentPropertyList _propertyList;
@@ -223,8 +223,8 @@ public class ComponentDefinitionEditor : BaseResourceEditor<ComponentDefinition>
 
 	public void SelectEvent( ComponentEventDefinition evnt )
 	{
-		_eventsExpandGroup.SetOpenState( true );
-		_eventsExpandGroup.SetHeight();
+		// _eventsExpandGroup.SetOpenState( true );
+		// _eventsExpandGroup.SetHeight();
 
 		// _eventList.SelectEvent( evnt );
 	}
