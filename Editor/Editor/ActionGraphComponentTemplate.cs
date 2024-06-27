@@ -10,7 +10,7 @@ public class ActionGraphComponentTemplate : ComponentTemplate
 {
 	public override string NameFilter => "Component Definition (*.comp)";
 	public override string Suffix => ".comp";
-	public override string DefaultDirectory => Path.Combine( Project.Current.GetRootPath(), "Components" );
+	public override string DefaultDirectory => Path.Combine( Project.Current.GetAssetsPath(), "Components" );
 
 	public override void Create( string componentName, string path )
 	{
