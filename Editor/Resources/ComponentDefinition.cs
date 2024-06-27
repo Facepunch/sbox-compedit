@@ -262,15 +262,6 @@ public partial class ComponentMethodDefinition : IMemberNameProvider
 		}
 	}
 
-	internal void RefreshBody()
-	{
-		if ( _graph is null ) return;
-
-		_graph.SetParameters(
-			_graph.Inputs.Values.ToArray().With( InputDefinition.Target( ComponentDefinition.GeneratedType ) ),
-			_graph.Outputs.Values.ToArray() );
-	}
-
 	public NodeBinding GetBinding( bool forHash = false )
 	{
 		if ( _graph is not null )

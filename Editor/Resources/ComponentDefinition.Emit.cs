@@ -223,26 +223,46 @@ partial class ComponentDefinition
 			? NodeBinding.FromMethodBase( baseMethod, EditorNodeLibrary )
 			: methodDef.GetBinding();
 
-		var parameters = new List<string>();
+		var delegateParameters = new List<string>();
+		var methodParameters = new List<string>();
 		var arguments = new List<string>();
 
-		foreach ( var inputDef in binding.Inputs.Where( x => x is { IsSignal: false, IsTarget: false } ) )
+		foreach ( var inputDef in binding.Inputs.Where( x => x is { IsSignal: false } ) )
 		{
-			parameters.Add( $"{TypeRef( inputDef.Type )} {inputDef.Name}" );
-			arguments.Add( inputDef.Name );
+			var parameter = $"{TypeRef( inputDef.Type )} {inputDef.Name}";
+
+			if ( inputDef.IsTarget )
+			{
+				delegateParameters.Add( $"[{TypeRef<ActionGraphTargetAttribute>()}] {parameter}" );
+
+				arguments.Add( "this" );
+			}
+			else
+			{
+				delegateParameters.Add( parameter );
+				methodParameters.Add( parameter );
+
+				arguments.Add( inputDef.Name );
+			}
 		}
 
 		foreach ( var outputDef in binding.Outputs.Where( x => x is { IsSignal: false } ) )
 		{
-			parameters.Add( $"out {TypeRef( outputDef.Type )} {outputDef.Name}" );
+			var parameter = $"out {TypeRef( outputDef.Type )} {outputDef.Name}";
+
+			delegateParameters.Add( parameter );
+			methodParameters.Add( parameter );
+
 			arguments.Add( $"out {outputDef.Name}" );
 		}
 
 		var delegateTypeName = $"{methodDef.Name}_Delegate";
 		var delegateFieldName = $"{methodDef.Name}_Body";
 
-		writer.WriteLine( $"    private delegate {TypeRef( typeof(void) )} {delegateTypeName}( {string.Join( ", ", parameters )} );" );
-		writer.WriteLine( $"    private static {delegateTypeName} {delegateFieldName} = {TypeRef( typeof( Json ) )}.{nameof(Json.Deserialize)}<{delegateTypeName}>( {StringLiteral( methodDef.SerializedBody!.ToJsonString() )} );" );
+		writer.WriteLine( $"    private delegate {TypeRef( typeof(void) )} {delegateTypeName}( {string.Join( ", ", delegateParameters )} );" );
+		writer.Write( $"    private static {delegateTypeName} {delegateFieldName} = " );
+		writer.Write( $"{TypeRef( typeof(ActionGraphs.ActionGraphCache) )}.{nameof(ActionGraphs.ActionGraphCache.GetOrAdd)}<{ClassName}, {delegateTypeName}>" );
+		writer.WriteLine( $"( {StringLiteral( methodDef.SerializedBody!.ToJsonString() )} );" );
 
 		if ( baseMethod is not null )
 		{
@@ -282,7 +302,7 @@ partial class ComponentDefinition
 			}
 		}
 
-		writer.WriteLine( $"{TypeRef( typeof( void ) )} {methodDef.Name}( {string.Join( ", ", parameters )} )" );
+		writer.WriteLine( $"{TypeRef( typeof( void ) )} {methodDef.Name}( {string.Join( ", ", methodParameters )} )" );
 		writer.WriteLine( "    {" );
 		writer.WriteLine($"        {delegateFieldName}( {string.Join( ", ", arguments )} );");
 		writer.WriteLine( "    }" );

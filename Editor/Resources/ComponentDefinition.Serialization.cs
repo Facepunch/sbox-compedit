@@ -7,6 +7,7 @@ using System.Text.Json.Serialization;
 using Facepunch.ActionGraphs;
 using Sandbox.ActionGraphs;
 using Sandbox.Internal;
+using ActionGraphCache = Editor.ActionGraphCache;
 
 namespace Sandbox;
 
@@ -133,6 +134,8 @@ partial class ComponentMethodDefinition
 		}
 	}
 
+	public string CacheKey => $"{ComponentDefinition.ResourcePath}:{Name}";
+
 	private JsonNode? SerializeBody( ActionGraph? body )
 	{
 		if ( body is null )
@@ -157,8 +160,6 @@ partial class ComponentMethodDefinition
 		return node;
 	}
 
-	private static JsonSerializerOptions? JsonOptions { get; set; }
-
 	private ActionGraph? DeserializeBody( JsonNode? node )
 	{
 		if ( node is null )
@@ -166,40 +167,9 @@ partial class ComponentMethodDefinition
 			return null;
 		}
 
-		using var libraryScope = EditorNodeLibrary.Push();
-
-		if ( OverrideMethod is { } method )
-		{
-			var binding = NodeBinding.FromMethodBase( method, EditorNodeLibrary );
-
-			// Make a copy
-			node = node.Deserialize<JsonNode>()!;
-
-			JsonOptions ??= new JsonSerializerOptions( EditorJsonOptions )
-			{
-				Converters =
-				{
-					new TypeConverter( EditorNodeLibrary.TypeLoader ), new ObjectConverter()
-				}
-			};
-
-			node["Parameters"] = new JsonObject
-			{
-				{ "Inputs", JsonSerializer.SerializeToNode( binding.Inputs, JsonOptions ) },
-				{ "Outputs", JsonSerializer.SerializeToNode( binding.Outputs, JsonOptions ) }
-			};
-		}
-
-		ActionGraph body;
-
-		using ( ActionGraph.PushTarget( InputDefinition.Target( ComponentDefinition.GeneratedType ) ) )
-		{
-			body = node.Deserialize<ActionGraph>( EditorJsonOptions )!;
-		}
-
-		UpdateParameters( body );
-
-		return body;
+		return ActionGraphCache.GetOrAdd( ComponentDefinition.GeneratedType, node, OverrideMethod is { } method
+			? NodeBinding.FromMethodBase( method, EditorNodeLibrary )
+			: null );
 	}
 }
 
