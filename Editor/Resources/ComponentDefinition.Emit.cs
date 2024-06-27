@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Facepunch.ActionGraphs;
 using Sandbox.Diagnostics;
@@ -93,9 +95,18 @@ partial class ComponentDefinition
 		return $"global::{type.Namespace}.{type.Name}";
 	}
 
-	private static string StringLiteral( string value )
+	private static string StringLiteral( string? value )
 	{
-		return $"@\"{value.Replace( "\"", "\"\"" )}\"";
+		return value is null ? "null" : $"@\"{value.Replace( "\"", "\"\"" )}\"";
+	}
+
+	private static JsonSerializerOptions JsonStringLiteralOptions { get; } = new JsonSerializerOptions { WriteIndented = true };
+
+	private static string StringLiteral( JsonNode? node, string indentation = "    " )
+	{
+		return node is null
+			? "null"
+			: $"{Environment.NewLine}{indentation}\"\"\"{Environment.NewLine}{indentation}{node.ToJsonString( JsonStringLiteralOptions ).Replace( "\n", $"\n{indentation}" )}{Environment.NewLine}{indentation}\"\"\"";
 	}
 
 	public void Build()
@@ -213,8 +224,6 @@ partial class ComponentDefinition
 
 	private void WriteMethod( TextWriter writer, ComponentMethodDefinition methodDef )
 	{
-		WriteDisplayAttributes( writer, methodDef.Display );
-
 		var baseMethod = methodDef.Override
 			? typeof( Component ).GetMethod( methodDef.Name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance )
 			: null;
@@ -265,7 +274,12 @@ partial class ComponentDefinition
 		writer.WriteLine( $"    private static {delegateTypeName} {delegateFieldName};" );
 		writer.Write( $"    private static {delegateTypeName} {delegatePropertyName} => {delegateFieldName} ??= " );
 		writer.Write( $"{TypeRef( typeof(ActionGraphs.ActionGraphCache) )}.{nameof(ActionGraphs.ActionGraphCache.GetOrAdd)}<{ClassName}, {delegateTypeName}>" );
-		writer.WriteLine( $"( {StringLiteral( methodDef.SerializedBody!.ToJsonString() )} );" );
+		writer.WriteLine( $"( {StringLiteral( methodDef.SerializedBody )} );" );
+
+		writer.WriteLine();
+		writer.WriteLine( $"    [{TypeRef<SourceLocationAttribute>()}( {StringLiteral( ResourcePath )}, 0 )]" );
+
+		WriteDisplayAttributes( writer, methodDef.Display );
 
 		if ( baseMethod is not null )
 		{
