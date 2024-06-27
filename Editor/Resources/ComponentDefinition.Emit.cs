@@ -95,18 +95,59 @@ partial class ComponentDefinition
 		return $"global::{type.Namespace}.{type.Name}";
 	}
 
-	private static string StringLiteral( string? value )
+	private static string StringLiteral( string? value, string indentation = "    " )
 	{
-		return value is null ? "null" : $"@\"{value.Replace( "\"", "\"\"" )}\"";
+		if ( value is null ) return "null";
+
+		if ( value.Contains( '\n' ) && !value.Contains( "\"\"\"" ) )
+		{
+			return $"{Environment.NewLine}{indentation}\"\"\"{Environment.NewLine}{indentation}{value.Replace( "\n", $"\n{indentation}" )}{Environment.NewLine}{indentation}\"\"\"";
+		}
+
+		if ( value.All( x => x >= 32 && x <= 126 ) )
+		{
+			value = value
+				.Replace( "\\", "\\\\" )
+				.Replace( "\"", "\\\"" );
+
+			return $"\"{value}\"";
+		}
+
+		return $"@\"{value.Replace( "\"", "\"\"" )}\"";
 	}
 
 	private static JsonSerializerOptions JsonStringLiteralOptions { get; } = new JsonSerializerOptions { WriteIndented = true };
 
 	private static string StringLiteral( JsonNode? node, string indentation = "    " )
 	{
-		return node is null
-			? "null"
-			: $"{Environment.NewLine}{indentation}\"\"\"{Environment.NewLine}{indentation}{node.ToJsonString( JsonStringLiteralOptions ).Replace( "\n", $"\n{indentation}" )}{Environment.NewLine}{indentation}\"\"\"";
+		return StringLiteral( node?.ToJsonString( JsonStringLiteralOptions ), indentation );
+	}
+
+	private static string Constant( object? value )
+	{
+		switch ( value )
+		{
+			case null:
+				return "null";
+
+			case string str:
+				return StringLiteral( str );
+
+			case int i:
+				return i.ToString();
+
+			case float f:
+				return $"{f:R}f";
+
+			case bool b:
+				return b ? "true" : "false";
+
+			case Resource res:
+				return $"{TypeRef( typeof(ResourceLibrary) )}.{nameof(ResourceLibrary.Get)}<{TypeRef( value.GetType() )}>( {StringLiteral( res.ResourcePath )} )";
+
+			default:
+				return $"{TypeRef( typeof(Json) )}.{nameof(Json.Deserialize)}<{TypeRef( value.GetType() )}>( {StringLiteral( Json.ToNode( value ) )} )";
+		}
 	}
 
 	public void Build()
@@ -219,7 +260,15 @@ partial class ComponentDefinition
 				break;
 		}
 
-		writer.WriteLine( " }" );
+		writer.Write( " }" );
+
+		if ( propertyDef.DefaultValue is null )
+		{
+			writer.WriteLine();
+			return;
+		}
+
+		writer.WriteLine( $" = {Constant( propertyDef.DefaultValue )};" );
 	}
 
 	private void WriteMethod( TextWriter writer, ComponentMethodDefinition methodDef )
@@ -266,16 +315,11 @@ partial class ComponentDefinition
 		}
 
 		var delegateTypeName = $"{methodDef.Name}_Delegate";
-		var delegateFieldName = $"{methodDef.Name}_Body_Cached";
-		var delegatePropertyName = $"{methodDef.Name}_Body";
+		var delegateFieldName = $"{methodDef.Name}_Body";
 
 		writer.WriteLine( $"    private delegate {TypeRef( typeof(void) )} {delegateTypeName}( {string.Join( ", ", delegateParameters )} );" );
 		writer.WriteLine( $"    [{TypeRef<SkipHotloadAttribute>()}]" );
 		writer.WriteLine( $"    private static {delegateTypeName} {delegateFieldName};" );
-		writer.Write( $"    private static {delegateTypeName} {delegatePropertyName} => {delegateFieldName} ??= " );
-		writer.Write( $"{TypeRef( typeof(ActionGraphs.ActionGraphCache) )}.{nameof(ActionGraphs.ActionGraphCache.GetOrAdd)}<{ClassName}, {delegateTypeName}>" );
-		writer.WriteLine( $"( {StringLiteral( methodDef.SerializedBody )} );" );
-
 		writer.WriteLine();
 		writer.WriteLine( $"    [{TypeRef<SourceLocationAttribute>()}( {StringLiteral( ResourcePath )}, 0 )]" );
 
@@ -321,7 +365,11 @@ partial class ComponentDefinition
 
 		writer.WriteLine( $"{TypeRef( typeof( void ) )} {methodDef.Name}( {string.Join( ", ", methodParameters )} )" );
 		writer.WriteLine( "    {" );
-		writer.WriteLine($"        {delegatePropertyName}( {string.Join( ", ", arguments )} );");
+		writer.Write( $"        {delegateFieldName} ??= " );
+		writer.Write( $"{TypeRef( typeof( ActionGraphs.ActionGraphCache ) )}.{nameof( ActionGraphs.ActionGraphCache.GetOrAdd )}<{ClassName}, {delegateTypeName}>" );
+		writer.WriteLine( $"( {StringLiteral( methodDef.SerializedBody, "        " )} );" );
+		writer.WriteLine();
+		writer.WriteLine( $"        {delegateFieldName}( {string.Join( ", ", arguments )} );" );
 		writer.WriteLine( "    }" );
 	}
 }
