@@ -330,6 +330,7 @@ partial class ComponentDefinition
 		if ( propertyDef.DefaultValue is null )
 		{
 			writer.WriteLine();
+			writer.WriteLine( $"    #endregion {propertyDef.Display.Name}" );
 			return;
 		}
 
@@ -486,7 +487,7 @@ partial class ComponentDefinition
 		writer.WriteLine($"    public event {delegateTypeName} {eventDef.Name};");
 		writer.WriteLine();
 
-		WriteDisplayAttributes( writer, eventDef.Display with { Name = $"Dispatch {eventDef.Display.Name}", Group = "Events" } );
+		WriteDisplayAttributes( writer, eventDef.Display with { Group = "Events" } );
 
 		writer.WriteLine( $"    public void {eventDef.Name}_Dispatch( {string.Join( ", ", parameters )} )");
 		writer.WriteLine( "    {" );
