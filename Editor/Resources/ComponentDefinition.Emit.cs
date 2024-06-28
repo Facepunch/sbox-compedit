@@ -6,6 +6,8 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using System.Threading.Tasks;
+using Editor;
 using Facepunch.ActionGraphs;
 using Sandbox.Diagnostics;
 using Sandbox.Internal;
@@ -175,6 +177,8 @@ partial class ComponentDefinition
 			ns = $"{compilerConfig.RootNamespace}.Generated";
 		}
 
+		var stubOnly = GeneratedType is null;
+
 		using ( var writer = new StreamWriter( File.Create( tempPath ) ) )
 		{
 			writer.WriteLine( $"// GENERATED FROM \"{ResourcePath}\"" );
@@ -189,46 +193,67 @@ partial class ComponentDefinition
 			writer.WriteLine( $"public sealed class {ClassName} : {TypeRef<Component>()}" );
 			writer.WriteLine( "{" );
 
-			writer.WriteLine();
-			writer.WriteLine( "    #region Properties" );
-			writer.WriteLine();
-
-			foreach ( var propertyDef in Properties )
+			if ( !stubOnly )
 			{
-				WriteProperty( writer, propertyDef );
+				writer.WriteLine();
+				writer.WriteLine( "    #region Properties" );
+				writer.WriteLine();
+
+				foreach ( var propertyDef in Properties )
+				{
+					WriteProperty( writer, propertyDef );
+					writer.WriteLine();
+				}
+
+				writer.WriteLine( "    #endregion Properties" );
+				writer.WriteLine();
+				writer.WriteLine( "    #region Methods" );
+				writer.WriteLine();
+
+				foreach ( var methodDef in Methods )
+				{
+					WriteMethod( writer, methodDef );
+					writer.WriteLine();
+				}
+
+				writer.WriteLine( "    #endregion Methods" );
+				writer.WriteLine();
+				writer.WriteLine( "    #region Events" );
+				writer.WriteLine();
+
+				foreach ( var eventDef in Events )
+				{
+					WriteEvent( writer, eventDef );
+					writer.WriteLine();
+				}
+
+				writer.WriteLine( "    #endregion Events" );
 				writer.WriteLine();
 			}
-
-			writer.WriteLine( "    #endregion Properties" );
-			writer.WriteLine();
-			writer.WriteLine( "    #region Methods" );
-			writer.WriteLine();
-
-			foreach ( var methodDef in Methods )
-			{
-				WriteMethod( writer, methodDef );
-				writer.WriteLine();
-			}
-
-			writer.WriteLine( "    #endregion Methods" );
-			writer.WriteLine();
-			writer.WriteLine( "    #region Events" );
-			writer.WriteLine();
-
-			foreach ( var eventDef in Events )
-			{
-				WriteEvent( writer, eventDef );
-				writer.WriteLine();
-			}
-
-			writer.WriteLine( "    #endregion Events" );
-			writer.WriteLine();
 
 			writer.WriteLine( "}" );
 			writer.WriteLine();
 		}
 
 		File.Move( tempPath, outputPath, true );
+
+		if ( stubOnly )
+		{
+			_ = FullBuildAfterCompile();
+		}
+	}
+
+	private async Task FullBuildAfterCompile()
+	{
+		// TODO: clean this up!!
+
+		await Task.Delay( 500 );
+		await EditorUtility.Projects.WaitForCompiles();
+
+		if ( GeneratedType is not null )
+		{
+			Build();
+		}
 	}
 
 	private void WriteAttributes( TextWriter writer )
