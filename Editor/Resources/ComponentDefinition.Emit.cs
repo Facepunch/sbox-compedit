@@ -189,11 +189,20 @@ partial class ComponentDefinition
 			writer.WriteLine( $"public sealed class {ClassName} : {TypeRef<Component>()}" );
 			writer.WriteLine( "{" );
 
+			writer.WriteLine();
+			writer.WriteLine( "    #region Properties" );
+			writer.WriteLine();
+
 			foreach ( var propertyDef in Properties )
 			{
 				WriteProperty( writer, propertyDef );
 				writer.WriteLine();
 			}
+
+			writer.WriteLine( "    #endregion Properties" );
+			writer.WriteLine();
+			writer.WriteLine( "    #region Methods" );
+			writer.WriteLine();
 
 			foreach ( var methodDef in Methods )
 			{
@@ -201,11 +210,19 @@ partial class ComponentDefinition
 				writer.WriteLine();
 			}
 
+			writer.WriteLine( "    #endregion Methods" );
+			writer.WriteLine();
+			writer.WriteLine( "    #region Events" );
+			writer.WriteLine();
+
 			foreach ( var eventDef in Events )
 			{
 				WriteEvent( writer, eventDef );
 				writer.WriteLine();
 			}
+
+			writer.WriteLine( "    #endregion Events" );
+			writer.WriteLine();
 
 			writer.WriteLine( "}" );
 			writer.WriteLine();
@@ -222,31 +239,66 @@ partial class ComponentDefinition
 		WriteDisplayAttributes( writer, Display, "" );
 	}
 
-	private static void WriteDisplayAttributes( TextWriter writer, DisplayInfo display, string indent = "    " )
+	private static void WriteDisplayAttributes( TextWriter writer, DisplayInfo display, string indent = "    ", string? target = null )
 	{
+		if ( target is not null )
+		{
+			target = $"{target}: ";
+		}
+
 		if ( !string.IsNullOrEmpty( display.Name ) )
 		{
-			writer.WriteLine( $"{indent}[{TypeRef<TitleAttribute>()}( {StringLiteral( display.Name )} )]" );
+			writer.WriteLine( $"{indent}[{target}{TypeRef<TitleAttribute>()}( {StringLiteral( display.Name )} )]" );
 		}
 
 		if ( !string.IsNullOrEmpty( display.Description ) )
 		{
-			writer.WriteLine( $"{indent}[{TypeRef<DescriptionAttribute>()}( {StringLiteral( display.Description )} )]" );
+			writer.WriteLine( $"{indent}[{target}{TypeRef<DescriptionAttribute>()}( {StringLiteral( display.Description )} )]" );
 		}
 
 		if ( !string.IsNullOrEmpty( display.Group ) )
 		{
-			writer.WriteLine( $"{indent}[{TypeRef<GroupAttribute>()}( {StringLiteral( display.Group )} )]" );
+			writer.WriteLine( $"{indent}[{target}{TypeRef<GroupAttribute>()}( {StringLiteral( display.Group )} )]" );
 		}
 
 		if ( !string.IsNullOrEmpty( display.Icon ) )
 		{
-			writer.WriteLine( $"{indent}[{TypeRef<IconAttribute>()}( {StringLiteral( display.Icon )} )]" );
+			writer.WriteLine( $"{indent}[{target}{TypeRef<IconAttribute>()}( {StringLiteral( display.Icon )} )]" );
+		}
+	}
+
+	private static void WriteDisplayAttributes( TextWriter writer, Facepunch.ActionGraphs.DisplayInfo display, string indent = "    ", string? target = null )
+	{
+		if ( target is not null )
+		{
+			target = $"{target}: ";
+		}
+
+		if ( !string.IsNullOrEmpty( display.Title ) )
+		{
+			writer.WriteLine( $"{indent}[{target}{TypeRef<TitleAttribute>()}( {StringLiteral( display.Title )} )]" );
+		}
+
+		if ( !string.IsNullOrEmpty( display.Description ) )
+		{
+			writer.WriteLine( $"{indent}[{target}{TypeRef<DescriptionAttribute>()}( {StringLiteral( display.Description )} )]" );
+		}
+
+		if ( !string.IsNullOrEmpty( display.Group ) )
+		{
+			writer.WriteLine( $"{indent}[{target}{TypeRef<GroupAttribute>()}( {StringLiteral( display.Group )} )]" );
+		}
+
+		if ( !string.IsNullOrEmpty( display.Icon ) )
+		{
+			writer.WriteLine( $"{indent}[{target}{TypeRef<IconAttribute>()}( {StringLiteral( display.Icon )} )]" );
 		}
 	}
 
 	private void WriteProperty( TextWriter writer, ComponentPropertyDefinition propertyDef )
 	{
+		writer.WriteLine( $"    #region {propertyDef.Display.Name}" );
+		writer.WriteLine();
 		writer.WriteLine( $"    [{TypeRef<PropertyAttribute>()}]" );
 
 		WriteDisplayAttributes( writer, propertyDef.Display );
@@ -282,10 +334,15 @@ partial class ComponentDefinition
 		}
 
 		writer.WriteLine( $" = {Constant( propertyDef.DefaultValue )};" );
+		writer.WriteLine();
+		writer.WriteLine( $"    #endregion {propertyDef.Display.Name}" );
 	}
 
 	private void WriteMethod( TextWriter writer, ComponentMethodDefinition methodDef )
 	{
+		writer.WriteLine( $"    #region {methodDef.Display.Name}" );
+		writer.WriteLine();
+
 		var baseMethod = methodDef.Override
 			? typeof( Component ).GetMethod( methodDef.Name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance )
 			: null;
@@ -384,38 +441,60 @@ partial class ComponentDefinition
 		writer.WriteLine();
 		writer.WriteLine( $"        {delegateFieldName}( {string.Join( ", ", arguments )} );" );
 		writer.WriteLine( "    }" );
+
+		writer.WriteLine();
+		writer.WriteLine( $"    #endregion {methodDef.Display.Name}" );
 	}
 
 	private void WriteEvent( TextWriter writer, ComponentEventDefinition eventDef )
 	{
+		writer.WriteLine( $"    #region {eventDef.Display.Name}" );
+		writer.WriteLine();
+
 		var binding = NodeBinding.Create(
 			new Facepunch.ActionGraphs.DisplayInfo( eventDef.Title ?? eventDef.Name, eventDef.Description,
 				eventDef.Group, eventDef.Icon ),
 			inputs: eventDef.Inputs );
 
-		var delegateParameters = new List<string>();
-		var methodParameters = new List<string>();
+		var parameters = new List<string>();
 		var arguments = new List<string>();
 
 		foreach ( var inputDef in binding.Inputs.Where( x => x is { IsSignal: false } ) )
 		{
 			var paramWriter = new StringWriter();
 
-			WriteDisplayAttributes( paramWriter, eventDef.Display, "" );
+			WriteDisplayAttributes( paramWriter, inputDef.Display, "" );
 
 			var parameter = $"{paramWriter.ToString().Replace( Environment.NewLine, "" )}{TypeRef( inputDef.Type )} {inputDef.Name}";
 
-			delegateParameters.Add( parameter );
-			methodParameters.Add( parameter );
+			parameters.Add( parameter );
 
 			arguments.Add( inputDef.Name );
 		}
 
 		var delegateTypeName = $"{eventDef.Name}_Delegate";
 
-		writer.WriteLine( $"    public delegate {TypeRef( typeof( void ) )} {delegateTypeName}( {string.Join( ", ", delegateParameters )} );" );
+		writer.WriteLine( $"    public delegate {TypeRef( typeof( void ) )} {delegateTypeName}( {string.Join( ", ", parameters )} );" );
+		writer.WriteLine();
 
-		// TODO
+		WriteDisplayAttributes( writer, eventDef.Display, target: "field" );
+
+		writer.WriteLine( $"    [field: {TypeRef<SourceLocationAttribute>()}( {StringLiteral( ResourcePath )}, 0 )]" );
+		writer.WriteLine( $"    [field: {TypeRef<ActionGraphIgnoreAttribute>()}]" );
+		writer.WriteLine( $"    [{TypeRef<PropertyAttribute>()}]" );
+
+		writer.WriteLine($"    public event {delegateTypeName} {eventDef.Name};");
+		writer.WriteLine();
+
+		WriteDisplayAttributes( writer, eventDef.Display with { Name = $"Dispatch {eventDef.Display.Name}", Group = "Events" } );
+
+		writer.WriteLine( $"    public void {eventDef.Name}_Dispatch( {string.Join( ", ", parameters )} )");
+		writer.WriteLine( "    {" );
+		writer.WriteLine( $"        {eventDef.Name}?.Invoke( {string.Join( ", ", arguments )} );" );
+		writer.WriteLine( "    }" );
+
+		writer.WriteLine();
+		writer.WriteLine( $"    #endregion {eventDef.Display.Name}" );
 	}
 }
 
