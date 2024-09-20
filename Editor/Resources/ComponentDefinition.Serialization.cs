@@ -6,7 +6,6 @@ using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Facepunch.ActionGraphs;
 using Sandbox.ActionGraphs;
-using ActionGraphCache = Editor.ActionGraphCache;
 
 namespace Sandbox;
 
@@ -26,7 +25,7 @@ file abstract class ExtendedJsonConverter<T> : JsonConverter<T>
 	}
 }
 
-partial class ComponentDefinition
+partial class ComponentDefinitionEditor
 {
 	private void UpdateMembers()
 	{
@@ -54,6 +53,11 @@ partial class ComponentDefinition
 			evnt.ComponentDefinition = this;
 		}
 	}
+
+	internal IDisposable PushSerializationScopeInternal()
+	{
+		return PushSerializationScope();
+	}
 }
 
 [JsonConverter( typeof(ComponentPropertyDefinitionConverter) )]
@@ -64,10 +68,6 @@ partial class ComponentPropertyDefinition
 
 file class ComponentPropertyDefinitionConverter : ExtendedJsonConverter<ComponentPropertyDefinition>
 {
-	private record Model( int Id, Type Type, JsonNode? Default,
-		PropertyAccess Access = PropertyAccess.Public, bool InitOnly = false,
-		string? Title = null, string? Description = null, string? Group = null, string? Icon = null, bool Hide = false );
-
 
 	public override ComponentPropertyDefinition Read( ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options )
 	{
@@ -140,11 +140,10 @@ partial class ComponentMethodDefinition
 			return null;
 		}
 
-		using var libraryScope = EditorNodeLibrary.Push();
-
 		JsonObject node;
 
-		using ( ActionGraph.PushTarget( InputDefinition.Target( ComponentDefinition.GeneratedType! ) ) )
+		using ( EditorNodeLibrary.Push() )
+		using ( ComponentDefinition.PushSerializationScopeInternal() )
 		{
 			node = JsonSerializer.SerializeToNode( body, EditorJsonOptions )!.AsObject();
 		}
@@ -157,6 +156,9 @@ partial class ComponentMethodDefinition
 		return node;
 	}
 
+	[SkipHotload]
+	private static JsonSerializerOptions? JsonOptions { get; set; }
+
 	private ActionGraph? DeserializeBody( JsonNode? node )
 	{
 		if ( node is null )
@@ -164,22 +166,38 @@ partial class ComponentMethodDefinition
 			return null;
 		}
 
-		return ActionGraphCache.GetOrAdd( ComponentDefinition.GeneratedType!, node, OverrideMethod is { } method
-			? NodeBinding.FromMethodBase( method, EditorNodeLibrary )
-			: null );
+		JsonOptions ??= new JsonSerializerOptions( EditorJsonOptions )
+		{
+			Converters =
+			{
+				new ObjectConverter()
+			}
+		};
+
+		using ( EditorNodeLibrary.Push() )
+		using ( ComponentDefinition.PushSerializationScopeInternal() )
+		{
+			if ( OverrideMethod is { } method )
+			{
+				var binding = NodeBinding.FromMethodBase( method, EditorNodeLibrary );
+
+				// Make a copy, don't want to change original
+				node = node.Deserialize<JsonNode>()!;
+
+				node["Parameters"] = new JsonObject
+				{
+					{ "Inputs", JsonSerializer.SerializeToNode( binding.Inputs, JsonOptions ) },
+					{ "Outputs", JsonSerializer.SerializeToNode( binding.Outputs, JsonOptions ) }
+				};
+			}
+
+			return node.Deserialize<ActionGraph>( EditorJsonOptions )!;
+		}
 	}
 }
 
 file class ComponentMethodDefinitionConverter : JsonConverter<ComponentMethodDefinition>
 {
-	[JsonPolymorphic]
-	[JsonDerivedType( typeof(OverrideModel), "Override" )]
-	[JsonDerivedType( typeof(NewModel), "New" )]
-	private record Model( JsonNode? Body );
-
-	private record OverrideModel( string Name, JsonNode? Body ) : Model( Body );
-	private record NewModel( int Id, MethodAccess Access, JsonNode? Body ) : Model( Body );
-
 	public override ComponentMethodDefinition? Read( ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options )
 	{
 		var model = JsonSerializer.Deserialize<Model>( ref reader, options );
@@ -218,9 +236,6 @@ partial class ComponentEventDefinition
 
 file class ComponentEventDefinitionConverter : ExtendedJsonConverter<ComponentEventDefinition>
 {
-	private record Model( int Id, IReadOnlyList<JsonNode> Inputs,
-		string? Title = null, string? Description = null, string? Group = null, string? Icon = null );
-
 	public override ComponentEventDefinition? Read( ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options )
 	{
 		options = OptionsWithTypeConverter( options );

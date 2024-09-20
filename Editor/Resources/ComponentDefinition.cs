@@ -10,49 +10,28 @@ namespace Sandbox;
 
 #nullable enable
 
-[GameResource( "Component Definition", "comp", "Describes the properties, methods and events of a component type.", Icon = "article" )]
-public partial class ComponentDefinition : GameResource
+public partial class ComponentDefinitionEditor : ISourcePathProvider
 {
 	private int _nextId = 1;
 
-	/// <summary>
-	/// A nicely formatted human-readable name for this component.
-	/// </summary>
-	[Property, Group( "Display" )]
-	public string? Title { get; set; }
+	public ComponentDefinition Resource { get; }
 
-	/// <summary>
-	/// What is this component for?
-	/// </summary>
-	[Property, Group( "Display" )]
-	public string? Description { get; set; }
+	public List<ComponentPropertyDefinition> Properties { get; } = new ();
+	
+	public List<ComponentMethodDefinition> Methods { get; } = new();
 
-	/// <summary>
-	/// Group name to help categorize this component.
-	/// </summary>
-	[Property, Group( "Display" )]
-	public string? Group { get; set; }
+	public List<ComponentEventDefinition> Events { get; } = new();
 
-	/// <summary>
-	/// Material icon for this component.
-	/// </summary>
-	[Property, Group( "Display" )]
-	public string? Icon { get; set; }
+	public Type? GeneratedType => Resource.GeneratedType;
 
-	[Hide, JsonIgnore]
-	public DisplayInfo Display => new()
+	public ComponentDefinitionEditor( ComponentDefinition resource )
 	{
-		Name = Title ?? ResourceName.ToTitleCase(),
-		Description = Description,
-		Group = Group,
-		Icon = Icon
-	};
-	
-	public List<ComponentPropertyDefinition> Properties { get; set; } = new ();
-	
-	public List<ComponentMethodDefinition> Methods { get; set; } = new();
+		Resource = resource;
 
-	public List<ComponentEventDefinition> Events { get; set; } = new();
+		Properties.AddRange( resource.Properties.Select( x => new ComponentPropertyDefinition( this, x ) ) );
+		Methods.AddRange( resource.Methods.Select( x => new ComponentMethodDefinition( this, x ) ) );
+		Events.AddRange( resource.Events.Select( x => new ComponentEventDefinition( this, x ) ) );
+	}
 
 	public T? GetDefaultValue<T>( string property )
 	{
@@ -133,43 +112,10 @@ public partial class ComponentDefinition : GameResource
 
 		return evnt;
 	}
+
+	public string Path => Resource.ResourcePath;
 }
 
-public enum PropertyAccess
-{
-	/// <summary>
-	/// This property is only accessible and modifiable from inside this component.
-	/// </summary>
-	[Icon( "shield" )]
-	Private,
-
-	/// <summary>
-	/// This property can be accessed publicly, but can only be set from inside this component.
-	/// </summary>
-	[Icon( "policy" )]
-	PublicGet,
-
-	/// <summary>
-	/// This property is publicly accessible and modifiable from anywhere.
-	/// </summary>
-	[Icon( "public" )]
-	Public
-}
-
-public enum MethodAccess
-{
-	/// <summary>
-	/// This method can only be called from inside this component.
-	/// </summary>
-	[Icon( "shield" )]
-	Private,
-
-	/// <summary>
-	/// This method is publicly callable from anywhere.
-	/// </summary>
-	[Icon( "public" )]
-	Public
-}
 
 public partial class ComponentPropertyDefinition : IMemberNameProvider
 {
@@ -177,7 +123,7 @@ public partial class ComponentPropertyDefinition : IMemberNameProvider
 	public int Id { get; set; }
 
 	[Hide, JsonIgnore]
-	internal ComponentDefinition ComponentDefinition { get; set; } = null!;
+	internal ComponentDefinitionEditor ComponentDefinition { get; set; } = null!;
 
 	[Property]
 	public string Name => $"Property{Id}";
@@ -189,7 +135,7 @@ public partial class ComponentPropertyDefinition : IMemberNameProvider
 	public object? DefaultValue { get; set; }
 
 	[Property]
-	public PropertyAccess Access { get; set; } = PropertyAccess.Public;
+	public ComponentDefinition.PropertyAccess Access { get; set; } = Sandbox.ComponentDefinition.PropertyAccess.Public;
 
 	[Property]
 	public bool InitOnly { get; set; }
@@ -224,10 +170,12 @@ public partial class ComponentPropertyDefinition : IMemberNameProvider
 
 	}
 
-	internal ComponentPropertyDefinition( int id, Type type, ComponentDefinition parent )
+	internal ComponentPropertyDefinition( int id, Type type, ComponentDefinitionEditor parent )
 	{
 		Id = id;
 		Type = type;
+
+		ComponentDefinition = parent;
 	}
 
 	string ISourcePathProvider.Path => ((ISourcePathProvider)ComponentDefinition).Path;
@@ -241,7 +189,7 @@ public partial class ComponentMethodDefinition : IMemberNameProvider
 	public int? Id { get; set; }
 
 	[Hide, JsonIgnore]
-	internal ComponentDefinition ComponentDefinition { get; set; } = null!;
+	internal ComponentDefinitionEditor ComponentDefinition { get; set; } = null!;
 
 	[Hide]
 	public string? OverrideName { get; set; }
@@ -286,7 +234,7 @@ public partial class ComponentMethodDefinition : IMemberNameProvider
 		: null;
 
 	[Property]
-	public MethodAccess Access { get; set; } = MethodAccess.Public;
+	public ComponentDefinition.MethodAccess Access { get; set; } = Sandbox.ComponentDefinition.MethodAccess.Public;
 
 	public T? GetUserData<T>( string name )
 		where T : class
@@ -308,7 +256,7 @@ public partial class ComponentMethodDefinition : IMemberNameProvider
 
 	}
 
-	internal ComponentMethodDefinition( int id, ComponentDefinition parent, ActionGraph body )
+	internal ComponentMethodDefinition( int id, ComponentDefinitionEditor parent, ActionGraph body )
 	{
 		Id = id;
 		OverrideName = null;
@@ -317,7 +265,7 @@ public partial class ComponentMethodDefinition : IMemberNameProvider
 		_graph = body;
 	}
 
-	internal ComponentMethodDefinition( string overrideName, ComponentDefinition parent, ActionGraph body )
+	internal ComponentMethodDefinition( string overrideName, ComponentDefinitionEditor parent, ActionGraph body )
 	{
 		Id = null;
 		OverrideName = overrideName;
@@ -347,7 +295,7 @@ public partial class ComponentEventDefinition : IMemberNameProvider
 	public int Id { get; set; }
 
 	[Hide, JsonIgnore]
-	internal ComponentDefinition ComponentDefinition { get; set; } = null!;
+	internal ComponentDefinitionEditor ComponentDefinition { get; }
 
 	[Property]
 	public string Name => $"Event{Id}";
@@ -376,12 +324,7 @@ public partial class ComponentEventDefinition : IMemberNameProvider
 		Icon = Icon
 	};
 
-	public ComponentEventDefinition()
-	{
-
-	}
-
-	internal ComponentEventDefinition( int id, ComponentDefinition parent )
+	internal ComponentEventDefinition( int id, ComponentDefinitionEditor parent )
 	{
 		Id = id;
 		ComponentDefinition = parent;

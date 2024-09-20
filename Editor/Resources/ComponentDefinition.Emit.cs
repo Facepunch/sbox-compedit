@@ -16,15 +16,13 @@ namespace Sandbox;
 
 #nullable enable
 
-partial class ComponentDefinition
+partial class ComponentDefinitionEditor
 {
 	[JsonIgnore]
 	public int BuildNumber { get; private set; } = 100;
 
 	private Type? _type;
 	private int _lastBuiltHash;
-
-	[Hide, JsonIgnore] public Type? GeneratedType => _type ??= GlobalGameNamespace.TypeLibrary.GetType( ResourcePath )?.TargetType;
 
 	protected override void PostLoad()
 	{
@@ -462,7 +460,9 @@ partial class ComponentDefinition
 		writer.WriteLine( $"{TypeRef( typeof( void ) )} {methodDef.Name}( {string.Join( ", ", methodParameters )} )" );
 		writer.WriteLine( "    {" );
 		writer.Write( $"        {delegateFieldName} ??= " );
-		writer.Write( $"{TypeRef( typeof( ActionGraphs.ActionGraphCache ) )}.{nameof( ActionGraphs.ActionGraphCache.GetOrAdd )}<{ClassName}, {delegateTypeName}>" );
+
+		throw new NotImplementedException();
+		// writer.Write( $"{TypeRef( typeof( ActionGraphs.ActionGraphCache ) )}.{nameof( ActionGraphs.ActionGraphCache.GetOrAdd )}<{ClassName}, {delegateTypeName}>" );
 		writer.WriteLine( $"( {StringLiteral( methodDef.SerializedBody, "        " )} );" );
 		writer.WriteLine();
 		writer.WriteLine( $"        {delegateFieldName}( {string.Join( ", ", arguments )} );" );
