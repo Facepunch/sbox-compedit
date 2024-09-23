@@ -26,8 +26,6 @@ partial class ComponentDefinitionEditor
 
 	protected override void PostLoad()
 	{
-		UpdateMembers();
-
 		if ( GeneratedType is null || _lastBuiltHash != GetDefinitionHash() )
 		{
 			Build();
@@ -36,8 +34,6 @@ partial class ComponentDefinitionEditor
 
 	protected override void PostReload()
 	{
-		UpdateMembers();
-
 		if ( GeneratedType is null || _lastBuiltHash != GetDefinitionHash() )
 		{
 			Build();

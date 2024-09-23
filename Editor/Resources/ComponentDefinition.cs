@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Text.Json.Serialization;
 using Facepunch.ActionGraphs;
 using Sandbox.Internal;
 
@@ -31,6 +30,17 @@ public partial class ComponentDefinitionEditor : ISourcePathProvider
 		Properties.AddRange( resource.Properties.Select( x => new ComponentPropertyDefinition( this, x ) ) );
 		Methods.AddRange( resource.Methods.Select( x => new ComponentMethodDefinition( this, x ) ) );
 		Events.AddRange( resource.Events.Select( x => new ComponentEventDefinition( this, x ) ) );
+	}
+
+	public void WriteToResource()
+	{
+		Resource.Properties.Clear();
+		Resource.Methods.Clear();
+		Resource.Events.Clear();
+
+		Resource.Properties.AddRange( Properties.Select( x => x.Serialize() ) );
+		Resource.Methods.AddRange( Methods.Select( x => x.Serialize() ) );
+		Resource.Events.AddRange( Events.Select( x => x.Serialize() ) );
 	}
 
 	public T? GetDefaultValue<T>( string property )
@@ -119,43 +129,29 @@ public partial class ComponentDefinitionEditor : ISourcePathProvider
 
 public partial class ComponentPropertyDefinition : IMemberNameProvider
 {
-	[Property]
-	public int Id { get; set; }
+	internal ComponentDefinitionEditor ComponentDefinition { get; }
+	public int Id { get; }
 
-	[Hide, JsonIgnore]
-	internal ComponentDefinitionEditor ComponentDefinition { get; set; } = null!;
-
-	[Property]
 	public string Name => $"Property{Id}";
 
-	[Property]
-	public Type Type { get; set; } = typeof(object);
+	public Type Type { get; set; }
 
-	[Property]
 	public object? DefaultValue { get; set; }
 
-	[Property]
 	public ComponentDefinition.PropertyAccess Access { get; set; } = Sandbox.ComponentDefinition.PropertyAccess.Public;
 
-	[Property]
 	public bool InitOnly { get; set; }
 
-	[Property, Group( "Display" )]
 	public string? Title { get; set; }
 
-	[Property, Group( "Display" )]
 	public string? Description { get; set; }
 
-	[Property, Group( "Display" )]
 	public string? Group { get; set; }
 
-	[Property, Group( "Display" )]
 	public string? Icon { get; set; }
 
-	[Property, Group( "Display" )]
 	public bool Hide { get; set; }
 
-	[Hide]
 	public DisplayInfo Display => new ()
 	{
 		Name = Title ?? Name.ToTitleCase(),
@@ -165,19 +161,6 @@ public partial class ComponentPropertyDefinition : IMemberNameProvider
 		Browsable = !Hide
 	};
 
-	public ComponentPropertyDefinition()
-	{
-
-	}
-
-	internal ComponentPropertyDefinition( int id, Type type, ComponentDefinitionEditor parent )
-	{
-		Id = id;
-		Type = type;
-
-		ComponentDefinition = parent;
-	}
-
 	string ISourcePathProvider.Path => ((ISourcePathProvider)ComponentDefinition).Path;
 
 	string IMemberNameProvider.MemberName => Name;
@@ -185,21 +168,15 @@ public partial class ComponentPropertyDefinition : IMemberNameProvider
 
 public partial class ComponentMethodDefinition : IMemberNameProvider
 {
-	[Hide]
-	public int? Id { get; set; }
+	internal ComponentDefinitionEditor ComponentDefinition { get; }
+	public int? Id { get; }
 
-	[Hide, JsonIgnore]
-	internal ComponentDefinitionEditor ComponentDefinition { get; set; } = null!;
+	public string? OverrideName { get; }
 
-	[Hide]
-	public string? OverrideName { get; set; }
-
-	[Property]
 	public string Name => OverrideName ?? $"Method{Id}";
 
-	[Hide] public bool Override => OverrideName != null;
+	public bool Override => OverrideName != null;
 
-	[Property]
 	public ActionGraph? Body
 	{
 		get => _graph ??= DeserializeBody( _serializedGraph );
@@ -228,12 +205,10 @@ public partial class ComponentMethodDefinition : IMemberNameProvider
 			: baseBinding.With( InputDefinition.Target( ComponentDefinition.GeneratedType! ) );
 	}
 
-	[Hide]
 	public MethodInfo? OverrideMethod => Override
 		? typeof( Component ).GetMethod( Name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance )
 		: null;
 
-	[Property]
 	public ComponentDefinition.MethodAccess Access { get; set; } = Sandbox.ComponentDefinition.MethodAccess.Public;
 
 	public T? GetUserData<T>( string name )
@@ -242,7 +217,6 @@ public partial class ComponentMethodDefinition : IMemberNameProvider
 		return (_graph?.UserData ?? _serializedGraph?["UserData"])?[name]?.GetValue<T>();
 	}
 
-	[Hide]
 	public DisplayInfo Display => new()
 	{
 		Name = GetUserData<string>( "Title" ) ?? Name.ToTitleCase(),
@@ -250,29 +224,6 @@ public partial class ComponentMethodDefinition : IMemberNameProvider
 		Group = GetUserData<string>( "Category" ),
 		Icon = GetUserData<string>( "Icon" )
 	};
-
-	public ComponentMethodDefinition()
-	{
-
-	}
-
-	internal ComponentMethodDefinition( int id, ComponentDefinitionEditor parent, ActionGraph body )
-	{
-		Id = id;
-		OverrideName = null;
-		ComponentDefinition = parent;
-
-		_graph = body;
-	}
-
-	internal ComponentMethodDefinition( string overrideName, ComponentDefinitionEditor parent, ActionGraph body )
-	{
-		Id = null;
-		OverrideName = overrideName;
-		ComponentDefinition = parent;
-
-		_graph = body;
-	}
 
 	internal void UpdateParameters( ActionGraph body )
 	{
@@ -291,31 +242,21 @@ public partial class ComponentMethodDefinition : IMemberNameProvider
 
 public partial class ComponentEventDefinition : IMemberNameProvider
 {
-	[Hide]
-	public int Id { get; set; }
-
-	[Hide, JsonIgnore]
 	internal ComponentDefinitionEditor ComponentDefinition { get; }
+	public int Id { get; }
 
-	[Property]
 	public string Name => $"Event{Id}";
 
-	[Property, Group( "Display" )]
 	public string? Title { get; set; }
 
-	[Property, Group( "Display" )]
 	public string? Description { get; set; }
 
-	[Property, Group( "Display" )]
 	public string? Group { get; set; }
 
-	[Property, Group( "Display" )]
 	public string? Icon { get; set; }
 
-	[Property]
-	public List<InputDefinition> Inputs { get; } = new List<InputDefinition>();
+	public List<InputDefinition> Inputs { get; } = new();
 
-	[Hide]
 	public DisplayInfo Display => new()
 	{
 		Name = Title ?? Name.ToTitleCase(),
@@ -323,12 +264,6 @@ public partial class ComponentEventDefinition : IMemberNameProvider
 		Group = Group,
 		Icon = Icon
 	};
-
-	internal ComponentEventDefinition( int id, ComponentDefinitionEditor parent )
-	{
-		Id = id;
-		ComponentDefinition = parent;
-	}
 
 	string ISourcePathProvider.Path => ((ISourcePathProvider)ComponentDefinition).Path;
 

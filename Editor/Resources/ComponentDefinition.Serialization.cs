@@ -1,9 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Text.Json.Serialization;
 using Facepunch.ActionGraphs;
 using Sandbox.ActionGraphs;
 
@@ -11,110 +8,47 @@ namespace Sandbox;
 
 #nullable enable
 
-file abstract class ExtendedJsonConverter<T> : JsonConverter<T>
-{
-	protected static JsonSerializerOptions OptionsWithTypeConverter( JsonSerializerOptions options )
-	{
-		// TODO: Should we cache this?
-
-		return new JsonSerializerOptions( options )
-		{
-			DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault,
-			Converters = { new TypeConverter( EditorNodeLibrary.TypeLoader ), new ObjectConverter() }
-		};
-	}
-}
-
-partial class ComponentDefinitionEditor
-{
-	private void UpdateMembers()
-	{
-		foreach ( var property in Properties )
-		{
-			_nextId = Math.Max( _nextId, property.Id + 1 );
-
-			property.ComponentDefinition = this;
-		}
-
-		foreach ( var method in Methods )
-		{
-			if ( method.Id is { } id )
-			{
-				_nextId = Math.Max( _nextId, id + 1 );
-			}
-
-			method.ComponentDefinition = this;
-		}
-
-		foreach ( var evnt in Events )
-		{
-			_nextId = Math.Max( _nextId, evnt.Id + 1 );
-
-			evnt.ComponentDefinition = this;
-		}
-	}
-
-	internal IDisposable PushSerializationScopeInternal()
-	{
-		return PushSerializationScope();
-	}
-}
-
-[JsonConverter( typeof(ComponentPropertyDefinitionConverter) )]
 partial class ComponentPropertyDefinition
 {
-
-}
-
-file class ComponentPropertyDefinitionConverter : ExtendedJsonConverter<ComponentPropertyDefinition>
-{
-
-	public override ComponentPropertyDefinition Read( ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options )
+	internal ComponentPropertyDefinition( ComponentDefinitionEditor parent, ComponentDefinition.PropertyModel model )
 	{
-		options = OptionsWithTypeConverter( options );
+		ComponentDefinition = parent;
 
-		var model = JsonSerializer.Deserialize<Model>( ref reader, options )!;
+		Id = model.Id;
+		Type = model.Type;
 
-		return new ComponentPropertyDefinition
-		{
-			Id = model.Id,
-			Type = model.Type,
-			DefaultValue = model.Default?.Deserialize( model.Type, options ),
-			Access = model.Access,
-			InitOnly = model.InitOnly,
-			Title = model.Title,
-			Description = model.Description,
-			Group = model.Group,
-			Icon = model.Icon,
-			Hide = model.Hide
-		};
+		DefaultValue = Json.FromNode( model.Default, Type );
+
+		Access = model.Access;
+		InitOnly = model.InitOnly;
+
+		Title = model.Title;
+		Description = model.Description;
+		Group = model.Group;
+		Icon = model.Icon;
+		Hide = model.Hide;
 	}
 
-	public override void Write( Utf8JsonWriter writer, ComponentPropertyDefinition value, JsonSerializerOptions options )
+	public ComponentDefinition.PropertyModel Serialize()
 	{
-		options = OptionsWithTypeConverter( options );
-
-		var defaultValueNode = value.Type.IsInstanceOfType( value.DefaultValue )
-			? JsonSerializer.SerializeToNode( value.DefaultValue, value.Type, options )
+		var defaultValueNode = Type.IsInstanceOfType( DefaultValue )
+			? Json.ToNode( DefaultValue, Type )
 			: null;
 
-		var model = new Model(
-			Id: value.Id,
-			Type: value.Type,
+		return new ComponentDefinition.PropertyModel(
+			Id: Id,
+			Type: Type,
 			Default: defaultValueNode,
-			Access: value.Access,
-			InitOnly: value.InitOnly,
-			Title: string.IsNullOrEmpty( value.Title ) ? null : value.Title,
-			Description: string.IsNullOrEmpty( value.Description ) ? null : value.Description,
-			Group: string.IsNullOrEmpty( value.Group ) ? null : value.Group,
-			Icon: string.IsNullOrEmpty( value.Icon ) ? null : value.Icon,
-			Hide: value.Hide );
-
-		JsonSerializer.Serialize( writer, model, options );
+			Access: Access,
+			InitOnly: InitOnly,
+			Title: string.IsNullOrEmpty( Title ) ? null : Title,
+			Description: string.IsNullOrEmpty( Description ) ? null : Description,
+			Group: string.IsNullOrEmpty( Group ) ? null : Group,
+			Icon: string.IsNullOrEmpty( Icon ) ? null : Icon,
+			Hide: Hide );
 	}
 }
 
-[JsonConverter( typeof( ComponentMethodDefinitionConverter ) )]
 partial class ComponentMethodDefinition
 {
 	// Defer actually deserializing the graph until needed, in case types aren't loaded yet
@@ -143,7 +77,7 @@ partial class ComponentMethodDefinition
 		JsonObject node;
 
 		using ( EditorNodeLibrary.Push() )
-		using ( ComponentDefinition.PushSerializationScopeInternal() )
+		using ( ComponentDefinition.Resource.PushSerializationScopeInternal() )
 		{
 			node = JsonSerializer.SerializeToNode( body, EditorJsonOptions )!.AsObject();
 		}
@@ -156,9 +90,6 @@ partial class ComponentMethodDefinition
 		return node;
 	}
 
-	[SkipHotload]
-	private static JsonSerializerOptions? JsonOptions { get; set; }
-
 	private ActionGraph? DeserializeBody( JsonNode? node )
 	{
 		if ( node is null )
@@ -166,16 +97,8 @@ partial class ComponentMethodDefinition
 			return null;
 		}
 
-		JsonOptions ??= new JsonSerializerOptions( EditorJsonOptions )
-		{
-			Converters =
-			{
-				new ObjectConverter()
-			}
-		};
-
 		using ( EditorNodeLibrary.Push() )
-		using ( ComponentDefinition.PushSerializationScopeInternal() )
+		using ( ComponentDefinition.Resource.PushSerializationScopeInternal() )
 		{
 			if ( OverrideMethod is { } method )
 			{
@@ -186,89 +109,66 @@ partial class ComponentMethodDefinition
 
 				node["Parameters"] = new JsonObject
 				{
-					{ "Inputs", JsonSerializer.SerializeToNode( binding.Inputs, JsonOptions ) },
-					{ "Outputs", JsonSerializer.SerializeToNode( binding.Outputs, JsonOptions ) }
+					{ "Inputs", Json.ToNode( binding.Inputs ) },
+					{ "Outputs", Json.ToNode( binding.Outputs ) }
 				};
 			}
 
 			return node.Deserialize<ActionGraph>( EditorJsonOptions )!;
 		}
 	}
-}
 
-file class ComponentMethodDefinitionConverter : JsonConverter<ComponentMethodDefinition>
-{
-	public override ComponentMethodDefinition? Read( ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options )
+	internal ComponentMethodDefinition( ComponentDefinitionEditor parent, ComponentDefinition.MethodModel model )
 	{
-		var model = JsonSerializer.Deserialize<Model>( ref reader, options );
+		ComponentDefinition = parent;
 
-		return model switch
+		switch ( model )
 		{
-			null => null,
-			OverrideModel overrideModel => new ComponentMethodDefinition
-			{
-				OverrideName = overrideModel.Name, SerializedBody = overrideModel.Body
-			},
-			NewModel newModel => new ComponentMethodDefinition
-			{
-				Id = newModel.Id,
-				Access = newModel.Access,
-				SerializedBody = newModel.Body
-			},
-			_ => throw new NotImplementedException()
-		};
-	}
+			case ComponentDefinition.NewMethodModel newMethodModel:
+				Id = newMethodModel.Id;
+				Access = newMethodModel.Access;
+				break;
 
-	public override void Write( Utf8JsonWriter writer, ComponentMethodDefinition value, JsonSerializerOptions options )
-	{
-		JsonSerializer.Serialize<Model>( writer, value.Override
-			? new OverrideModel( Name: value.OverrideName!, Body: value.SerializedBody )
-			: new NewModel( Id: value.Id!.Value, value.Access, value.SerializedBody ),
-			options );
-	}
-}
-
-[JsonConverter( typeof(ComponentEventDefinitionConverter) )]
-partial class ComponentEventDefinition
-{
-
-}
-
-file class ComponentEventDefinitionConverter : ExtendedJsonConverter<ComponentEventDefinition>
-{
-	public override ComponentEventDefinition? Read( ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options )
-	{
-		options = OptionsWithTypeConverter( options );
-
-		var model = JsonSerializer.Deserialize<Model>( ref reader, options );
-
-		if ( model is null )
-		{
-			return null;
+			case ComponentDefinition.OverrideMethodModel overrideModel:
+				OverrideName = overrideModel.Name;
+				break;
 		}
 
-		return new ComponentEventDefinition
-		{
-			Id = model.Id,
-			Title = model.Title,
-			Description = model.Description,
-			Group = model.Group,
-			Icon = model.Icon
-		};
+		_serializedGraph = model.Body;
 	}
 
-	public override void Write( Utf8JsonWriter writer, ComponentEventDefinition value, JsonSerializerOptions options )
+	public ComponentDefinition.MethodModel Serialize()
 	{
-		options = OptionsWithTypeConverter( options );
+		return Override
+			? new ComponentDefinition.OverrideMethodModel( OverrideName!, SerializedBody )
+			: new ComponentDefinition.NewMethodModel( Id!.Value, Access, SerializedBody );
+	}
+}
 
-		JsonSerializer.Serialize( writer,
-			new Model(
-				Id: value.Id,
-				Inputs: value.Inputs.Select( x => x.SerializeToNode( options ) ).ToArray(),
-				Title: value.Title,
-				Description: value.Description,
-				Group: value.Group,
-				Icon: value.Icon ),
-			options );
+partial class ComponentEventDefinition
+{
+	internal ComponentEventDefinition( ComponentDefinitionEditor parent, ComponentDefinition.EventModel model )
+	{
+		ComponentDefinition = parent;
+
+		Id = model.Id;
+
+		Title = model.Title;
+		Description = model.Description;
+		Group = model.Group;
+		Icon = model.Icon;
+
+		Inputs.AddRange( model.Inputs.Select( Json.FromNode<InputDefinition> ) );
+	}
+
+	public ComponentDefinition.EventModel Serialize()
+	{
+		return new ComponentDefinition.EventModel(
+			Id: Id,
+			Inputs: Inputs.Select( Json.ToNode ).ToArray(),
+			Title: Title,
+			Description: Description,
+			Group: Group,
+			Icon: Icon );
 	}
 }

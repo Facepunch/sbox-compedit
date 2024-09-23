@@ -110,4 +110,9 @@ public partial class ComponentDefinition : GameResource
 		[Icon( "public" )]
 		Public
 	}
+
+	public IDisposable PushSerializationScopeInternal()
+	{
+		return PushSerializationScope();
+	}
 }
