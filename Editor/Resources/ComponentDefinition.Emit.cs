@@ -76,8 +76,20 @@ partial class ComponentDefinition
 		return StringLiteral( node?.ToJsonString( JsonStringLiteralOptions ), indentation );
 	}
 
-	private static string Constant( object? value )
+	private static string Constant( object? value, Type type )
 	{
+		if ( !type.IsInstanceOfType( value ) )
+		{
+			if ( !type.IsValueType || Nullable.GetUnderlyingType( type ) is not null )
+			{
+				value = null;
+			}
+			else
+			{
+				value = Activator.CreateInstance( type );
+			}
+		}
+
 		switch ( value )
 		{
 			case null:
@@ -149,7 +161,9 @@ partial class ComponentDefinition
 			if ( !stubOnly )
 			{
 				writer.WriteLine( $"    private static {TypeRef<ComponentResource>()} _definition;" );
-				writer.WriteLine( $"    internal static {TypeRef<ComponentResource>()} Definition => _definition ??= {TypeRef( typeof( ResourceLibrary ) )}.{nameof( ResourceLibrary.Get )}<{TypeRef<ComponentResource>()}>( {StringLiteral( ResourcePath )} );" );
+				writer.WriteLine( $"    internal static {TypeRef<ComponentResource>()} Definition => _definition" );
+				writer.WriteLine( $"        ??= {TypeRef( typeof( ResourceLibrary ) )}.{nameof( ResourceLibrary.Get )}<{TypeRef<ComponentResource>()}>( {StringLiteral( ResourcePath )} )" );
+				writer.WriteLine( $"        ?? throw new {TypeRef<Exception>()}( \"Component definition not found: \\\"{ResourcePath}\\\"\" );" );
 				writer.WriteLine();
 
 				writer.WriteLine();
@@ -316,7 +330,7 @@ partial class ComponentDefinition
 			return;
 		}
 
-		writer.WriteLine( $" = {Constant( propertyDef.DefaultValue )};" );
+		writer.WriteLine( $" = {Constant( propertyDef.DefaultValue, propertyDef.Type )};" );
 		writer.WriteLine();
 		writer.WriteLine( $"    #endregion {propertyDef.Display.Name}" );
 	}
@@ -429,7 +443,7 @@ partial class ComponentDefinition
 			writer.Write( methodDef.Id!.Value );
 		}
 
-		writer.WriteLine( ");" );
+		writer.WriteLine( " );" );
 		writer.WriteLine( $"        {delegateFieldName}( {string.Join( ", ", arguments )} );" );
 		writer.WriteLine( "    }" );
 

@@ -158,20 +158,20 @@ public class ComponentDefinitionEditor : BaseResourceEditor<ComponentResource>
 	{
 		_lastChangeIndex = Resource.ChangeIndex;
 
-		Serialized = EditorTypeLibrary.GetSerializedObject( resource );
 		Definition = ComponentDefinition.Get( resource );
-
 		Definition.UpdateFromResource();
 
-		_displaySheet.Clear( true );
-		_displaySheet.AddRow( Serialized.GetProperty( nameof(ComponentResource.Title) ) );
-		_displaySheet.AddRow( Serialized.GetProperty( nameof(ComponentResource.Description) ) );
-		_displaySheet.AddRow( Serialized.GetProperty( nameof(ComponentResource.Group) ) );
-		_displaySheet.AddRow( Serialized.GetProperty( nameof(ComponentResource.Icon) ) );
+		Serialized = EditorTypeLibrary.GetSerializedObject( Definition );
 
-		_propertyList.Initialize( Serialized.GetProperty( nameof(ComponentResource.Properties) ) );
-		_methodList.Initialize( Serialized.GetProperty( nameof(ComponentResource.Methods) ) );
-		_eventList.Initialize( Serialized.GetProperty( nameof(ComponentResource.Events) ) );
+		_displaySheet.Clear( true );
+		_displaySheet.AddRow( Serialized.GetProperty( nameof(ComponentDefinition.Title) ) );
+		_displaySheet.AddRow( Serialized.GetProperty( nameof(ComponentDefinition.Description) ) );
+		_displaySheet.AddRow( Serialized.GetProperty( nameof(ComponentDefinition.Group) ) );
+		_displaySheet.AddRow( Serialized.GetProperty( nameof(ComponentDefinition.Icon) ) );
+
+		_propertyList.Initialize( Serialized.GetProperty( nameof(ComponentDefinition.Properties) ) );
+		_methodList.Initialize( Serialized.GetProperty( nameof(ComponentDefinition.Methods) ) );
+		_eventList.Initialize( Serialized.GetProperty( nameof(ComponentDefinition.Events) ) );
 
 		Serialized.OnPropertyChanged += NoteChanged;
 	}

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json.Nodes;
+using Editor;
 using Facepunch.ActionGraphs;
 using Sandbox.Internal;
 
@@ -33,6 +34,30 @@ public partial class ComponentDefinition : ISourcePathProvider
 
 	public Type? GeneratedType => Resource.GeneratedType;
 
+	public string? Title
+	{
+		get => Resource.Title;
+		set => Resource.Title = value;
+	}
+
+	public string? Description
+	{
+		get => Resource.Description;
+		set => Resource.Description = value;
+	}
+
+	public string? Group
+	{
+		get => Resource.Group;
+		set => Resource.Group = value;
+	}
+
+	public string? Icon
+	{
+		get => Resource.Icon;
+		set => Resource.Icon = value;
+	}
+
 	private ComponentDefinition( ComponentResource resource )
 	{
 		Resource = resource;
@@ -60,6 +85,8 @@ public partial class ComponentDefinition : ISourcePathProvider
 		Resource.Properties.AddRange( Properties.Select( x => x.Serialize() ) );
 		Resource.Methods.AddRange( Methods.Select( x => x.Serialize() ) );
 		Resource.Events.AddRange( Events.Select( x => x.Serialize() ) );
+
+		AssetSystem.FindByPath( ResourcePath )?.SaveToDisk( Resource );
 	}
 
 	public ComponentPropertyDefinition AddProperty( Type type )
@@ -145,6 +172,7 @@ public partial class ComponentDefinition : ISourcePathProvider
 public partial class ComponentPropertyDefinition : IMemberNameProvider
 {
 	internal ComponentDefinition ComponentDefinition { get; }
+
 	public int Id { get; }
 
 	public string Name => $"Property{Id}";

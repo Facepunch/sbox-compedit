@@ -110,6 +110,7 @@ public class ComponentPropertyList : GridLayout
 
 		typeControl.OnChildValuesChanged += widget =>
 		{
+			valueProperty.SetValue<object>( null );
 			RefreshValueWidget();
 		};
 
