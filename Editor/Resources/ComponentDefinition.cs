@@ -84,8 +84,6 @@ public partial class ComponentDefinition : ISourcePathProvider
 
 	public void WriteToResource()
 	{
-		Log.Info( $"WriteToResource" );
-
 		Resource.Properties.Clear();
 		Resource.Methods.Clear();
 		Resource.Events.Clear();
@@ -175,7 +173,6 @@ public partial class ComponentDefinition : ISourcePathProvider
 
 	string ISourcePathProvider.Path => ResourcePath;
 }
-
 
 public partial class ComponentPropertyDefinition : IMemberNameProvider
 {

@@ -8,6 +8,30 @@ namespace Sandbox;
 
 #nullable enable
 
+partial class ComponentDefinition
+{
+	[Event( "actiongraph.saving" )]
+	public static void OnActionGraphSaving( ActionGraph graph, GameResource resource )
+	{
+		if ( resource is not ComponentResource componentResource )
+		{
+			return;
+		}
+
+		var definition = Get( componentResource );
+		var matchingMethod = definition.Methods
+			.FirstOrDefault( x => x.Body == graph );
+
+		if ( matchingMethod is null )
+		{
+			Log.Warning( $"Can't find matching method for graph {graph.Title} in resource {resource.ResourcePath}!" );
+			return;
+		}
+
+		definition.Build();
+	}
+}
+
 partial class ComponentPropertyDefinition
 {
 	internal ComponentPropertyDefinition( ComponentDefinition parent, ComponentResource.PropertyModel model )
@@ -59,8 +83,6 @@ partial class ComponentMethodDefinition
 		{
 			return null;
 		}
-
-		Log.Info( $"SerializeBody: {Id}" );
 
 		JsonObject node;
 
