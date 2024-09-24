@@ -53,33 +53,21 @@ partial class ComponentMethodDefinition
 {
 	// Defer actually deserializing the graph until needed, in case types aren't loaded yet
 
-	private ActionGraph? _graph;
-	private JsonNode? _serializedGraph;
-
-	[Hide]
-	public JsonNode? SerializedBody
+	private JsonNode? SerializeBody()
 	{
-		get => _serializedGraph ??= SerializeBody( _graph );
-		set
-		{
-			_serializedGraph = value;
-			_graph = null;
-		}
-	}
-
-	private JsonNode? SerializeBody( ActionGraph? body )
-	{
-		if ( body is null )
+		if ( _graph is null )
 		{
 			return null;
 		}
+
+		Log.Info( $"SerializeBody: {Id}" );
 
 		JsonObject node;
 
 		using ( EditorNodeLibrary.Push() )
 		using ( ComponentDefinition.Resource.PushSerializationScopeInternal() )
 		{
-			node = JsonSerializer.SerializeToNode( body, EditorJsonOptions )!.AsObject();
+			node = JsonSerializer.SerializeToNode( _graph, EditorJsonOptions )!.AsObject();
 		}
 
 		if ( Override )
@@ -90,12 +78,14 @@ partial class ComponentMethodDefinition
 		return node;
 	}
 
-	private ActionGraph? DeserializeBody( JsonNode? node )
+	private ActionGraph? DeserializeBody()
 	{
-		if ( node is null )
+		if ( _serializedGraph is null )
 		{
 			return null;
 		}
+
+		var node = _serializedGraph;
 
 		using ( EditorNodeLibrary.Push() )
 		using ( ComponentDefinition.Resource.PushSerializationScopeInternal() )
@@ -109,7 +99,7 @@ partial class ComponentMethodDefinition
 
 				node["Parameters"] = new JsonObject
 				{
-					{ "Inputs", Json.ToNode( binding.Inputs ) },
+					{ "Inputs", Json.ToNode( binding.Inputs.With( InputDefinition.Target( ComponentDefinition.GeneratedType! ) ) ) },
 					{ "Outputs", Json.ToNode( binding.Outputs ) }
 				};
 			}

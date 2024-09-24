@@ -345,7 +345,7 @@ partial class ComponentDefinition
 			: null;
 
 		var binding = baseMethod is not null
-			? NodeBinding.FromMethodBase( baseMethod, EditorNodeLibrary )
+			? NodeBinding.FromMethodBase( baseMethod, EditorNodeLibrary ).With( InputDefinition.Target( GeneratedType! ) )
 			: methodDef.GetBinding();
 
 		var delegateParameters = new List<string>();

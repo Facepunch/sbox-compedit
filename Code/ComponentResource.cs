@@ -51,9 +51,6 @@ public class ComponentResource : GameResource
 	public List<MethodModel> Methods { get; set; } = new();
 	public List<EventModel> Events { get; set; } = new();
 
-	[Hide, JsonIgnore]
-	public int ChangeIndex { get; set; }
-
 	private Type? _type;
 
 	[Hide, JsonIgnore] public Type? GeneratedType => _type ??= GlobalGameNamespace.TypeLibrary.GetType( ResourcePath )?.TargetType;
@@ -134,10 +131,5 @@ public class ComponentResource : GameResource
 		using var _ = PushSerializationScope();
 
 		return Json.FromNode<T>( Methods.OfType<OverrideMethodModel>().FirstOrDefault( x => x.Name == methodName )?.Body );
-	}
-
-	protected override void PostReload()
-	{
-		++ChangeIndex;
 	}
 }

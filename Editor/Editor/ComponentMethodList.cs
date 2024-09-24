@@ -91,6 +91,12 @@ public class ComponentMethodList : GridLayout
 		else
 		{
 			_controls[name] = body;
+
+			body.OnChildValuesChanged += _ =>
+			{
+				Log.Info( "Changed!" );
+				_editor.Definition.Build();
+			};
 		}
 
 		AddCell( cell++, row, new ComponentIconButton( "edit_note", "Edit More (TODO)", () => { } ) );

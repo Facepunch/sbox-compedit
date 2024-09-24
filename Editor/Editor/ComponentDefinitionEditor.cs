@@ -156,8 +156,6 @@ public class ComponentDefinitionEditor : BaseResourceEditor<ComponentResource>
 
 	protected override void Initialize( Asset asset, ComponentResource resource )
 	{
-		_lastChangeIndex = Resource.ChangeIndex;
-
 		Definition = ComponentDefinition.Get( resource );
 		Definition.UpdateFromResource();
 
@@ -179,17 +177,6 @@ public class ComponentDefinitionEditor : BaseResourceEditor<ComponentResource>
 	protected override void SavedToDisk()
 	{
 		Definition.Build();
-
-		_lastChangeIndex = Resource.ChangeIndex;
-	}
-
-	[EditorEvent.Frame]
-	private void Frame()
-	{
-		if ( _lastChangeIndex != Resource.ChangeIndex )
-		{
-			Initialize( Asset, Resource );
-		}
 	}
 
 	private (Widget Widget, ExpandGroup Group) AddGroup( string title, string icon )

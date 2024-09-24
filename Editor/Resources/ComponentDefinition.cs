@@ -74,10 +74,18 @@ public partial class ComponentDefinition : ISourcePathProvider
 		Properties.AddRange( Resource.Properties.Select( x => new ComponentPropertyDefinition( this, x ) ) );
 		Methods.AddRange( Resource.Methods.Select( x => new ComponentMethodDefinition( this, x ) ) );
 		Events.AddRange( Resource.Events.Select( x => new ComponentEventDefinition( this, x ) ) );
+
+		_nextId = 0;
+
+		_nextId = Math.Max( _nextId, Properties.Select( x => x.Id ).DefaultIfEmpty( -1 ).Max() + 1 );
+		_nextId = Math.Max( _nextId, Methods.Select( x => x.Id ?? -1 ).DefaultIfEmpty( -1 ).Max() + 1 );
+		_nextId = Math.Max( _nextId, Events.Select( x => x.Id ).DefaultIfEmpty( -1 ).Max() + 1 );
 	}
 
 	public void WriteToResource()
 	{
+		Log.Info( $"WriteToResource" );
+
 		Resource.Properties.Clear();
 		Resource.Methods.Clear();
 		Resource.Events.Clear();
@@ -220,9 +228,35 @@ public partial class ComponentMethodDefinition : IMemberNameProvider
 
 	public bool Override => OverrideName != null;
 
+	private ActionGraph? _graph;
+	private JsonNode? _serializedGraph;
+
+	[Hide]
+	public JsonNode? SerializedBody
+	{
+		get
+		{
+			return _serializedGraph ?? SerializeBody();
+		}
+		set
+		{
+			_serializedGraph = value;
+			_graph = null;
+		}
+	}
+
 	public ActionGraph? Body
 	{
-		get => _graph ??= DeserializeBody( _serializedGraph );
+		get
+		{
+			if ( _serializedGraph is not null )
+			{
+				_graph = DeserializeBody();
+				_serializedGraph = null;
+			}
+
+			return _graph;
+		}
 		set
 		{
 			_graph = value;
