@@ -10,7 +10,7 @@ namespace Sandbox;
 
 partial class ComponentPropertyDefinition
 {
-	internal ComponentPropertyDefinition( ComponentDefinitionEditor parent, ComponentDefinition.PropertyModel model )
+	internal ComponentPropertyDefinition( ComponentDefinition parent, ComponentResource.PropertyModel model )
 	{
 		ComponentDefinition = parent;
 
@@ -29,13 +29,13 @@ partial class ComponentPropertyDefinition
 		Hide = model.Hide;
 	}
 
-	public ComponentDefinition.PropertyModel Serialize()
+	public ComponentResource.PropertyModel Serialize()
 	{
 		var defaultValueNode = Type.IsInstanceOfType( DefaultValue )
 			? Json.ToNode( DefaultValue, Type )
 			: null;
 
-		return new ComponentDefinition.PropertyModel(
+		return new ComponentResource.PropertyModel(
 			Id: Id,
 			Type: Type,
 			Default: defaultValueNode,
@@ -118,18 +118,18 @@ partial class ComponentMethodDefinition
 		}
 	}
 
-	internal ComponentMethodDefinition( ComponentDefinitionEditor parent, ComponentDefinition.MethodModel model )
+	internal ComponentMethodDefinition( ComponentDefinition parent, ComponentResource.MethodModel model )
 	{
 		ComponentDefinition = parent;
 
 		switch ( model )
 		{
-			case ComponentDefinition.NewMethodModel newMethodModel:
+			case ComponentResource.NewMethodModel newMethodModel:
 				Id = newMethodModel.Id;
 				Access = newMethodModel.Access;
 				break;
 
-			case ComponentDefinition.OverrideMethodModel overrideModel:
+			case ComponentResource.OverrideMethodModel overrideModel:
 				OverrideName = overrideModel.Name;
 				break;
 		}
@@ -137,17 +137,17 @@ partial class ComponentMethodDefinition
 		_serializedGraph = model.Body;
 	}
 
-	public ComponentDefinition.MethodModel Serialize()
+	public ComponentResource.MethodModel Serialize()
 	{
 		return Override
-			? new ComponentDefinition.OverrideMethodModel( OverrideName!, SerializedBody )
-			: new ComponentDefinition.NewMethodModel( Id!.Value, Access, SerializedBody );
+			? new ComponentResource.OverrideMethodModel( OverrideName!, SerializedBody )
+			: new ComponentResource.NewMethodModel( Id!.Value, Access, SerializedBody );
 	}
 }
 
 partial class ComponentEventDefinition
 {
-	internal ComponentEventDefinition( ComponentDefinitionEditor parent, ComponentDefinition.EventModel model )
+	internal ComponentEventDefinition( ComponentDefinition parent, ComponentResource.EventModel model )
 	{
 		ComponentDefinition = parent;
 
@@ -161,9 +161,9 @@ partial class ComponentEventDefinition
 		Inputs.AddRange( model.Inputs.Select( Json.FromNode<InputDefinition> ) );
 	}
 
-	public ComponentDefinition.EventModel Serialize()
+	public ComponentResource.EventModel Serialize()
 	{
-		return new ComponentDefinition.EventModel(
+		return new ComponentResource.EventModel(
 			Id: Id,
 			Inputs: Inputs.Select( Json.ToNode ).ToArray(),
 			Title: Title,

@@ -78,7 +78,7 @@ public class ComponentEventList : GridLayout
 		{
 			if ( _targetList.Remove( evnt ) )
 			{
-				_editor.Resource.Build();
+				_editor.Definition.Build();
 			}
 		} ) );
 	}

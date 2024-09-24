@@ -16,56 +16,12 @@ namespace Sandbox;
 
 #nullable enable
 
-partial class ComponentDefinitionEditor
+partial class ComponentDefinition
 {
 	[JsonIgnore]
 	public int BuildNumber { get; private set; } = 100;
 
-	private Type? _type;
-	private int _lastBuiltHash;
-
-	protected override void PostLoad()
-	{
-		if ( GeneratedType is null || _lastBuiltHash != GetDefinitionHash() )
-		{
-			Build();
-		}
-	}
-
-	protected override void PostReload()
-	{
-		if ( GeneratedType is null || _lastBuiltHash != GetDefinitionHash() )
-		{
-			Build();
-		}
-	}
-
-	/// <summary>
-	/// A hash of this type's definition. If it's changed we need to rebuild.
-	/// </summary>
-	internal int GetDefinitionHash()
-	{
-		var hashCode = new HashCode();
-
-		foreach ( var propertyDef in Properties )
-		{
-			hashCode.Add( propertyDef.GetDefinitionHash() );
-		}
-
-		foreach ( var method in Methods)
-		{
-			hashCode.Add( method.GetDefinitionHash() );
-		}
-
-		foreach ( var evnt in Events )
-		{
-			hashCode.Add( evnt.GetDefinitionHash() );
-		}
-
-		return hashCode.ToHashCode();
-	}
-
-	public string ClassName => $"Component_{ResourceId:x8}";
+	public string ClassName => $"Component_{Resource.ResourceId:x8}";
 
 	private static string TypeRef<T>()
 	{
@@ -149,7 +105,7 @@ partial class ComponentDefinitionEditor
 
 	public void Build()
 	{
-		_lastBuiltHash = GetDefinitionHash();
+		WriteToResource();
 
 		++BuildNumber;
 
@@ -179,6 +135,9 @@ partial class ComponentDefinitionEditor
 			writer.WriteLine( "// DO NOT EDIT!" );
 			writer.WriteLine();
 
+			writer.WriteLine( "#nullable disable" );
+			writer.WriteLine();
+
 			writer.WriteLine( $"namespace {ns};" );
 			writer.WriteLine();
 
@@ -189,6 +148,10 @@ partial class ComponentDefinitionEditor
 
 			if ( !stubOnly )
 			{
+				writer.WriteLine( $"    private static {TypeRef<ComponentResource>()} _definition;" );
+				writer.WriteLine( $"    internal static {TypeRef<ComponentResource>()} Definition => _definition ??= {TypeRef( typeof( ResourceLibrary ) )}.{nameof( ResourceLibrary.Get )}<{TypeRef<ComponentResource>()}>( {StringLiteral( ResourcePath )} );" );
+				writer.WriteLine();
+
 				writer.WriteLine();
 				writer.WriteLine( "    #region Properties" );
 				writer.WriteLine();
@@ -255,7 +218,7 @@ partial class ComponentDefinitionEditor
 		writer.WriteLine( $"[{TypeRef<ClassNameAttribute>()}( {StringLiteral( ResourcePath )} )]" );
 		writer.WriteLine( $"[{TypeRef<SourceLocationAttribute>()}( {StringLiteral( ResourcePath )}, 0 )]" );
 
-		WriteDisplayAttributes( writer, Display, "" );
+		WriteDisplayAttributes( writer, Resource.Display, "" );
 	}
 
 	private static void WriteDisplayAttributes( TextWriter writer, DisplayInfo display, string indent = "    ", string? target = null )
@@ -324,10 +287,10 @@ partial class ComponentDefinitionEditor
 
 		switch ( propertyDef.Access )
 		{
-			case PropertyAccess.Public or PropertyAccess.PublicGet:
+			case ComponentResource.PropertyAccess.Public or ComponentResource.PropertyAccess.PublicGet:
 				writer.Write( "    public " );
 				break;
-			case PropertyAccess.Private:
+			case ComponentResource.PropertyAccess.Private:
 				writer.Write( "    private " );
 				break;
 		}
@@ -336,7 +299,7 @@ partial class ComponentDefinitionEditor
 
 		switch ( propertyDef.Access )
 		{
-			case PropertyAccess.PublicGet:
+			case ComponentResource.PropertyAccess.PublicGet:
 				writer.Write( "get; private set;" );
 				break;
 			default:
@@ -443,11 +406,11 @@ partial class ComponentDefinitionEditor
 
 			switch ( methodDef.Access )
 			{
-				case MethodAccess.Public:
+				case ComponentResource.MethodAccess.Public:
 					writer.Write( "    public " );
 					break;
 
-				case MethodAccess.Private:
+				case ComponentResource.MethodAccess.Private:
 					writer.Write( "    private " );
 					break;
 			}
@@ -455,12 +418,18 @@ partial class ComponentDefinitionEditor
 
 		writer.WriteLine( $"{TypeRef( typeof( void ) )} {methodDef.Name}( {string.Join( ", ", methodParameters )} )" );
 		writer.WriteLine( "    {" );
-		writer.Write( $"        {delegateFieldName} ??= " );
+		writer.Write( $"        {delegateFieldName} ??= Definition.{nameof(ComponentResource.GetMethodBody)}<{delegateTypeName}>( " );
 
-		throw new NotImplementedException();
-		// writer.Write( $"{TypeRef( typeof( ActionGraphs.ActionGraphCache ) )}.{nameof( ActionGraphs.ActionGraphCache.GetOrAdd )}<{ClassName}, {delegateTypeName}>" );
-		writer.WriteLine( $"( {StringLiteral( methodDef.SerializedBody, "        " )} );" );
-		writer.WriteLine();
+		if ( methodDef.Override )
+		{
+			writer.Write( StringLiteral( methodDef.OverrideName! ) );
+		}
+		else
+		{
+			writer.Write( methodDef.Id!.Value );
+		}
+
+		writer.WriteLine( ");" );
 		writer.WriteLine( $"        {delegateFieldName}( {string.Join( ", ", arguments )} );" );
 		writer.WriteLine( "    }" );
 
@@ -517,78 +486,5 @@ partial class ComponentDefinitionEditor
 
 		writer.WriteLine();
 		writer.WriteLine( $"    #endregion {eventDef.Display.Name}" );
-	}
-}
-
-partial class ComponentPropertyDefinition
-{
-	internal int GetDefinitionHash()
-	{
-		var hashCode = new HashCode();
-
-		hashCode.Add( Name );
-		hashCode.Add( Access );
-		hashCode.Add( Type.FullName );
-
-		return hashCode.ToHashCode();
-	}
-}
-
-partial class ComponentMethodDefinition
-{
-	internal int GetDefinitionHash()
-	{
-		var hashCode = new HashCode();
-
-		hashCode.Add( Name );
-		hashCode.Add( Override );
-		hashCode.Add( Access );
-
-		if ( !Override )
-		{
-			var binding = GetBinding( true );
-
-			foreach ( var inputDef in binding.Inputs )
-			{
-				if ( inputDef.IsTarget )
-				{
-					continue;
-				}
-
-				hashCode.Add( inputDef.Name );
-				hashCode.Add( inputDef.Type.FullName );
-			}
-
-			foreach ( var outputDef in binding.Outputs )
-			{
-				hashCode.Add( outputDef.Name );
-				hashCode.Add( outputDef.Type.FullName );
-			}
-		}
-
-		return hashCode.ToHashCode();
-	}
-}
-
-partial class ComponentEventDefinition
-{
-	internal int GetDefinitionHash()
-	{
-		var hashCode = new HashCode();
-
-		hashCode.Add( Name );
-
-		foreach ( var inputDef in Inputs )
-		{
-			if ( inputDef.IsTarget )
-			{
-				continue;
-			}
-
-			hashCode.Add( inputDef.Name );
-			hashCode.Add( inputDef.Type.FullName );
-		}
-
-		return hashCode.ToHashCode();
 	}
 }

@@ -4,9 +4,10 @@ using Sandbox;
 
 namespace Editor.ActionGraphs;
 
-public class ComponentDefinitionEditor : BaseResourceEditor<ComponentDefinition>
+public class ComponentDefinitionEditor : BaseResourceEditor<ComponentResource>
 {
 	public SerializedObject Serialized { get; private set; }
+	public ComponentDefinition Definition { get; private set; }
 
 	private ExpandGroup _propertiesExpandGroup;
 	private ExpandGroup _methodsExpandGroup;
@@ -17,7 +18,7 @@ public class ComponentDefinitionEditor : BaseResourceEditor<ComponentDefinition>
 	private readonly ComponentMethodList _methodList;
 	private readonly ComponentEventList _eventList;
 
-	private int _lastBuildNumber;
+	private int _lastChangeIndex;
 
 	public ComponentDefinitionEditor()
 	{
@@ -96,13 +97,13 @@ public class ComponentDefinitionEditor : BaseResourceEditor<ComponentDefinition>
 	private void AddPropertyDialog( Button source )
 	{
 		var type = Resource.Properties.LastOrDefault()?.Type ?? typeof( float );
-		var property = Resource.AddProperty( type );
+		var property = Definition.AddProperty( type );
 
 		property.Title = property.Name.ToTitleCase();
 
-		Resource.Build();
+		Definition.Build();
 
-		_propertyList.Initialize( Serialized.GetProperty( nameof( ComponentDefinition.Properties ) ) );
+		_propertyList.Initialize( Serialized.GetProperty( nameof( ComponentResource.Properties ) ) );
 	}
 
 	private MethodDescription[] GetOverridable()
@@ -110,27 +111,27 @@ public class ComponentDefinitionEditor : BaseResourceEditor<ComponentDefinition>
 		return EditorTypeLibrary.GetType<Component>()
 			.Methods
 			.Where( x => x.IsVirtual && (x.IsFamily || x.IsPublic) )
-			.Where( x => Resource.Methods.All( y => y.Name != x.Name ) )
+			.Where( x => Definition.Methods.All( y => y.Name != x.Name ) )
 			.Where( x => x.ReturnType == typeof(void) ) // TODO: support returning methods
 			.ToArray();
 	}
 
 	private void AddMethodDialog( Button source )
 	{
-		var method = Resource.AddMethod( EditorNodeLibrary );
+		var method = Definition.AddMethod( EditorNodeLibrary );
 
 		method.Body!.Title = method.Name.ToTitleCase();
 
-		Resource.Build();
+		Definition.Build();
 	}
 
 	private void AddEventDialog( Button source )
 	{
-		var evnt = Resource.AddEvent( Enumerable.Empty<InputDefinition>() );
+		var evnt = Definition.AddEvent( Enumerable.Empty<InputDefinition>() );
 
 		evnt.Title = evnt.Name.ToTitleCase();
 
-		Resource.Build();
+		Definition.Build();
 	}
 
 	private void OverrideMethodDialog( Button source )
@@ -142,47 +143,50 @@ public class ComponentDefinitionEditor : BaseResourceEditor<ComponentDefinition>
 			menu.AddOption( methodDescription.Title, methodDescription.Icon ?? "bolt", () =>
 			{
 				var name = methodDescription.Name;
-				var method = Resource.AddOverride( name, EditorNodeLibrary );
+				var method = Definition.AddOverride( name, EditorNodeLibrary );
 
 				method.Body!.Title = name.ToTitleCase();
 
-				Resource.Build();
+				Definition.Build();
 			} );
 		}
 
 		menu.OpenAtCursor( true );
 	}
 
-	protected override void Initialize( Asset asset, ComponentDefinition resource )
+	protected override void Initialize( Asset asset, ComponentResource resource )
 	{
-		_lastBuildNumber = Resource.BuildNumber;
+		_lastChangeIndex = Resource.ChangeIndex;
 
 		Serialized = EditorTypeLibrary.GetSerializedObject( resource );
+		Definition = ComponentDefinition.Get( resource );
+
+		Definition.UpdateFromResource();
 
 		_displaySheet.Clear( true );
-		_displaySheet.AddRow( Serialized.GetProperty( nameof(ComponentDefinition.Title) ) );
-		_displaySheet.AddRow( Serialized.GetProperty( nameof(ComponentDefinition.Description) ) );
-		_displaySheet.AddRow( Serialized.GetProperty( nameof(ComponentDefinition.Group) ) );
-		_displaySheet.AddRow( Serialized.GetProperty( nameof(ComponentDefinition.Icon) ) );
+		_displaySheet.AddRow( Serialized.GetProperty( nameof(ComponentResource.Title) ) );
+		_displaySheet.AddRow( Serialized.GetProperty( nameof(ComponentResource.Description) ) );
+		_displaySheet.AddRow( Serialized.GetProperty( nameof(ComponentResource.Group) ) );
+		_displaySheet.AddRow( Serialized.GetProperty( nameof(ComponentResource.Icon) ) );
 
-		_propertyList.Initialize( Serialized.GetProperty( nameof(ComponentDefinition.Properties) ) );
-		_methodList.Initialize( Serialized.GetProperty( nameof(ComponentDefinition.Methods) ) );
-		_eventList.Initialize( Serialized.GetProperty( nameof(ComponentDefinition.Events) ) );
+		_propertyList.Initialize( Serialized.GetProperty( nameof(ComponentResource.Properties) ) );
+		_methodList.Initialize( Serialized.GetProperty( nameof(ComponentResource.Methods) ) );
+		_eventList.Initialize( Serialized.GetProperty( nameof(ComponentResource.Events) ) );
 
 		Serialized.OnPropertyChanged += NoteChanged;
 	}
 
 	protected override void SavedToDisk()
 	{
-		Resource.Build();
+		Definition.Build();
 
-		_lastBuildNumber = Resource.BuildNumber;
+		_lastChangeIndex = Resource.ChangeIndex;
 	}
 
 	[EditorEvent.Frame]
 	private void Frame()
 	{
-		if ( _lastBuildNumber != Resource.BuildNumber )
+		if ( _lastChangeIndex != Resource.ChangeIndex )
 		{
 			Initialize( Asset, Resource );
 		}
@@ -231,7 +235,7 @@ public class ComponentDefinitionEditor : BaseResourceEditor<ComponentDefinition>
 
 	public override void SelectMember( string name )
 	{
-		var property = Resource.Properties.FirstOrDefault( x => x.Name == name );
+		var property = Definition.Properties.FirstOrDefault( x => x.Name == name );
 
 		if ( property != null )
 		{
@@ -239,7 +243,7 @@ public class ComponentDefinitionEditor : BaseResourceEditor<ComponentDefinition>
 			return;
 		}
 
-		var method = Resource.Methods.FirstOrDefault( x => x.Name == name );
+		var method = Definition.Methods.FirstOrDefault( x => x.Name == name );
 
 		if ( method != null )
 		{
@@ -247,7 +251,7 @@ public class ComponentDefinitionEditor : BaseResourceEditor<ComponentDefinition>
 			return;
 		}
 
-		var evnt = Resource.Events.FirstOrDefault( x => x.Name == name );
+		var evnt = Definition.Events.FirstOrDefault( x => x.Name == name );
 
 		if ( evnt != null )
 		{

@@ -118,7 +118,7 @@ public class ComponentPropertyList : GridLayout
 		{
 			if ( _targetList.Remove( property ) )
 			{
-				_editor.Resource.Build();
+				_editor.Definition.Build();
 			}
 		} ) );
 	}

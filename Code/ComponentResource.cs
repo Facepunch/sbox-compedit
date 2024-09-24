@@ -1,6 +1,7 @@
 ﻿using Sandbox.Internal;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
@@ -11,7 +12,7 @@ namespace Sandbox;
 [GameResource( "Component Definition", "comp",
 	"Describes the properties, methods and events of a component type.",
 	Icon = "article" )]
-public partial class ComponentDefinition : GameResource
+public class ComponentResource : GameResource
 {
 	/// <summary>
 	/// A nicely formatted human-readable name for this component.
@@ -50,6 +51,9 @@ public partial class ComponentDefinition : GameResource
 	public List<MethodModel> Methods { get; set; } = new();
 	public List<EventModel> Events { get; set; } = new();
 
+	[Hide, JsonIgnore]
+	public int ChangeIndex { get; set; }
+
 	private Type? _type;
 
 	[Hide, JsonIgnore] public Type? GeneratedType => _type ??= GlobalGameNamespace.TypeLibrary.GetType( ResourcePath )?.TargetType;
@@ -60,7 +64,7 @@ public partial class ComponentDefinition : GameResource
 	[JsonIgnore, Hide]
 	protected override Type ActionGraphTargetType => GeneratedType!;
 
-	public record PropertyModel( int Id, Type Type, JsonNode? Default,
+	public record PropertyModel( int Id, Type Type, JsonNode? Default = null,
 		PropertyAccess Access = PropertyAccess.Public, bool InitOnly = false,
 		string? Title = null, string? Description = null, string? Group = null, string? Icon = null, bool Hide = false );
 
@@ -69,8 +73,8 @@ public partial class ComponentDefinition : GameResource
 	[JsonDerivedType( typeof( NewMethodModel ), "New" )]
 	public record MethodModel( JsonNode? Body );
 
-	public record OverrideMethodModel( string Name, JsonNode? Body ) : MethodModel( Body );
-	public record NewMethodModel( int Id, MethodAccess Access, JsonNode? Body ) : MethodModel( Body );
+	public record OverrideMethodModel( string Name, JsonNode? Body = null ) : MethodModel( Body );
+	public record NewMethodModel( int Id, MethodAccess Access = MethodAccess.Public, JsonNode? Body = null ) : MethodModel( Body );
 
 	public record EventModel( int Id, IReadOnlyList<JsonNode> Inputs,
 		string? Title = null, string? Description = null, string? Group = null, string? Icon = null );
@@ -114,5 +118,26 @@ public partial class ComponentDefinition : GameResource
 	public IDisposable PushSerializationScopeInternal()
 	{
 		return PushSerializationScope();
+	}
+
+	public T? GetMethodBody<T>( int methodId )
+		where T : Delegate
+	{
+		using var _ = PushSerializationScope();
+
+		return Json.FromNode<T>( Methods.OfType<NewMethodModel>().FirstOrDefault( x => x.Id == methodId )?.Body );
+	}
+
+	public T? GetMethodBody<T>( string methodName )
+		where T : Delegate
+	{
+		using var _ = PushSerializationScope();
+
+		return Json.FromNode<T>( Methods.OfType<OverrideMethodModel>().FirstOrDefault( x => x.Name == methodName )?.Body );
+	}
+
+	protected override void PostReload()
+	{
+		++ChangeIndex;
 	}
 }

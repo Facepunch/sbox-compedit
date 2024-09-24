@@ -1,26 +1,22 @@
-using System;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 using Editor.NodeEditor;
 using Facepunch.ActionGraphs;
 using Sandbox;
+using Sandbox.ActionGraphs;
 
 namespace Editor.ActionGraphs;
 
 public static class ActionGraphEditorExtensions
 {
-	public static ComponentDefinition GetComponentDefinition( this EditorActionGraph graph )
+	public static ComponentDefinition GetComponentResource( this EditorActionGraph graph )
 	{
 		return graph.Graph.GetComponentDefinition();
 	}
+
 	public static ComponentDefinition GetComponentDefinition( this ActionGraph graph )
 	{
-		return graph.Inputs.Values.FirstOrDefault( x => x.IsTarget )?.Type is { } targetType
-			&& targetType.GetCustomAttribute<ClassNameAttribute>() is { Value: { } resourcePath }
-			&& ResourceLibrary.TryGet( resourcePath, out ComponentDefinition componentDef )
-			? componentDef
-			: null;
+		return graph.SourceLocation is not SourceLocation { Resource: ComponentResource resource } ? null : ComponentDefinition.Get( resource );
 	}
 
 	public static ComponentPropertyDefinition GetInputPropertyDefinition( this ActionInputPlug plug )
@@ -41,7 +37,7 @@ public static class ActionGraphEditorExtensions
 	[Event( PopulateNodeMenuEvent.EventName )]
 	public static void OnPopulateNodeMenu( PopulateNodeMenuEvent eventArgs )
 	{
-		if ( eventArgs.View.Graph.GetComponentDefinition() is not { } compDef ) return;
+		if ( eventArgs.View.Graph.GetComponentResource() is not { } compDef ) return;
 
 		var menu = eventArgs.Menu;
 		var addPropertyMenu = menu.AddMenu( "Add Property", "add_box" );
@@ -82,7 +78,7 @@ public static class ActionGraphEditorExtensions
 	public static void OnPopulateInputPlugMenu( PopulateInputPlugMenuEvent eventArgs )
 	{
 		if ( eventArgs.Plug.Type == typeof(Task) 
-			|| eventArgs.EditorGraph.GetComponentDefinition() is not { } componentDefinition
+			|| eventArgs.EditorGraph.GetComponentResource() is not { } componentDefinition
 			|| eventArgs.ActionGraph.Target is not { } targetSource )
 		{
 			return;
@@ -170,7 +166,7 @@ public static class ActionGraphEditorExtensions
 	[Event( PopulateCreateSubGraphMenuEvent.EventName )]
 	public static void OnPopulateCreateSubGraphMenu( PopulateCreateSubGraphMenuEvent eventArgs )
 	{
-		if ( eventArgs.EditorGraph.GetComponentDefinition() is not { } compDef 
+		if ( eventArgs.EditorGraph.GetComponentResource() is not { } compDef 
 			|| eventArgs.ActionGraph.Target is not { } targetSource )
 		{
 			return;
@@ -224,7 +220,7 @@ public static class ActionGraphEditorExtensions
 	[Event( FindGraphTargetEvent.EventName )]
 	private static void OnFindGraphTarget( FindGraphTargetEvent eventArgs )
 	{
-		if ( eventArgs.TargetValue is ComponentDefinition compDef )
+		if ( eventArgs.TargetValue is ComponentResource compDef )
 		{
 			eventArgs.TargetValue = null;
 			eventArgs.TargetType = compDef.GeneratedType;

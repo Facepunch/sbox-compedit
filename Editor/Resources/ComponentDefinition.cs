@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json.Nodes;
 using Facepunch.ActionGraphs;
 using Sandbox.Internal;
 
@@ -9,11 +10,20 @@ namespace Sandbox;
 
 #nullable enable
 
-public partial class ComponentDefinitionEditor : ISourcePathProvider
+public partial class ComponentDefinition : ISourcePathProvider
 {
+	private static Dictionary<ComponentResource, ComponentDefinition> Definitions { get; } = new();
+
+	public static ComponentDefinition Get( ComponentResource resource )
+	{
+		return Definitions.TryGetValue( resource, out var def )
+			? def
+			: Definitions[resource] = new ComponentDefinition( resource );
+	}
+
 	private int _nextId = 1;
 
-	public ComponentDefinition Resource { get; }
+	public ComponentResource Resource { get; }
 
 	public List<ComponentPropertyDefinition> Properties { get; } = new ();
 	
@@ -23,13 +33,22 @@ public partial class ComponentDefinitionEditor : ISourcePathProvider
 
 	public Type? GeneratedType => Resource.GeneratedType;
 
-	public ComponentDefinitionEditor( ComponentDefinition resource )
+	private ComponentDefinition( ComponentResource resource )
 	{
 		Resource = resource;
 
-		Properties.AddRange( resource.Properties.Select( x => new ComponentPropertyDefinition( this, x ) ) );
-		Methods.AddRange( resource.Methods.Select( x => new ComponentMethodDefinition( this, x ) ) );
-		Events.AddRange( resource.Events.Select( x => new ComponentEventDefinition( this, x ) ) );
+		UpdateFromResource();
+	}
+
+	public void UpdateFromResource()
+	{
+		Properties.Clear();
+		Methods.Clear();
+		Events.Clear();
+
+		Properties.AddRange( Resource.Properties.Select( x => new ComponentPropertyDefinition( this, x ) ) );
+		Methods.AddRange( Resource.Methods.Select( x => new ComponentMethodDefinition( this, x ) ) );
+		Events.AddRange( Resource.Events.Select( x => new ComponentEventDefinition( this, x ) ) );
 	}
 
 	public void WriteToResource()
@@ -43,21 +62,9 @@ public partial class ComponentDefinitionEditor : ISourcePathProvider
 		Resource.Events.AddRange( Events.Select( x => x.Serialize() ) );
 	}
 
-	public T? GetDefaultValue<T>( string property )
-	{
-		return Properties.FirstOrDefault( x => x.Name == property )?.DefaultValue is T defaultValue
-			? defaultValue
-			: default;
-	}
-
-	public ActionGraph? GetMethodBody( string name )
-	{
-		return Methods.FirstOrDefault( x => x.Name == name )?.Body;
-	}
-
 	public ComponentPropertyDefinition AddProperty( Type type )
 	{
-		var property = new ComponentPropertyDefinition( _nextId++, type, this );
+		var property = new ComponentPropertyDefinition( this, new ComponentResource.PropertyModel( _nextId++, type ) );
 
 		Properties.Add( property );
 
@@ -86,7 +93,10 @@ public partial class ComponentDefinitionEditor : ISourcePathProvider
 
 	public ComponentMethodDefinition AddMethod( ActionGraph body )
 	{
-		var method = new ComponentMethodDefinition( _nextId++, this, body );
+		var method = new ComponentMethodDefinition( this, new ComponentResource.NewMethodModel( _nextId++ ) )
+		{
+			Body = body
+		};
 
 		Methods.Add( method );
 
@@ -101,7 +111,10 @@ public partial class ComponentDefinitionEditor : ISourcePathProvider
 		}
 
 		var body = ActionGraph.CreateEmpty( nodeLibrary );
-		var method = new ComponentMethodDefinition( name, this, body );
+		var method = new ComponentMethodDefinition( this, new ComponentResource.OverrideMethodModel( name ) )
+		{
+			Body = body
+		};
 
 		method.UpdateParameters( body );
 
@@ -114,7 +127,7 @@ public partial class ComponentDefinitionEditor : ISourcePathProvider
 
 	public ComponentEventDefinition AddEvent( IEnumerable<InputDefinition> inputs )
 	{
-		var evnt = new ComponentEventDefinition( _nextId++, this );
+		var evnt = new ComponentEventDefinition( this, new ComponentResource.EventModel( _nextId++, Array.Empty<JsonNode>() ) );
 
 		evnt.Inputs.AddRange( inputs );
 
@@ -123,13 +136,15 @@ public partial class ComponentDefinitionEditor : ISourcePathProvider
 		return evnt;
 	}
 
-	public string Path => Resource.ResourcePath;
+	public string ResourcePath => Resource.ResourcePath;
+
+	string ISourcePathProvider.Path => ResourcePath;
 }
 
 
 public partial class ComponentPropertyDefinition : IMemberNameProvider
 {
-	internal ComponentDefinitionEditor ComponentDefinition { get; }
+	internal ComponentDefinition ComponentDefinition { get; }
 	public int Id { get; }
 
 	public string Name => $"Property{Id}";
@@ -138,7 +153,7 @@ public partial class ComponentPropertyDefinition : IMemberNameProvider
 
 	public object? DefaultValue { get; set; }
 
-	public ComponentDefinition.PropertyAccess Access { get; set; } = Sandbox.ComponentDefinition.PropertyAccess.Public;
+	public ComponentResource.PropertyAccess Access { get; set; } = Sandbox.ComponentResource.PropertyAccess.Public;
 
 	public bool InitOnly { get; set; }
 
@@ -168,7 +183,7 @@ public partial class ComponentPropertyDefinition : IMemberNameProvider
 
 public partial class ComponentMethodDefinition : IMemberNameProvider
 {
-	internal ComponentDefinitionEditor ComponentDefinition { get; }
+	internal ComponentDefinition ComponentDefinition { get; }
 	public int? Id { get; }
 
 	public string? OverrideName { get; }
@@ -209,7 +224,7 @@ public partial class ComponentMethodDefinition : IMemberNameProvider
 		? typeof( Component ).GetMethod( Name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance )
 		: null;
 
-	public ComponentDefinition.MethodAccess Access { get; set; } = Sandbox.ComponentDefinition.MethodAccess.Public;
+	public ComponentResource.MethodAccess Access { get; set; } = Sandbox.ComponentResource.MethodAccess.Public;
 
 	public T? GetUserData<T>( string name )
 		where T : class
@@ -242,7 +257,7 @@ public partial class ComponentMethodDefinition : IMemberNameProvider
 
 public partial class ComponentEventDefinition : IMemberNameProvider
 {
-	internal ComponentDefinitionEditor ComponentDefinition { get; }
+	internal ComponentDefinition ComponentDefinition { get; }
 	public int Id { get; }
 
 	public string Name => $"Event{Id}";
