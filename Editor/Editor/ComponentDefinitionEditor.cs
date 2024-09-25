@@ -102,8 +102,7 @@ public class ComponentDefinitionEditor : BaseResourceEditor<ComponentResource>
 		property.Title = property.Name.ToTitleCase();
 
 		Definition.Build();
-
-		_propertyList.Initialize( Serialized.GetProperty( nameof( ComponentResource.Properties ) ) );
+		_propertyList.Refresh();
 	}
 
 	private MethodDescription[] GetOverridable()
@@ -123,6 +122,7 @@ public class ComponentDefinitionEditor : BaseResourceEditor<ComponentResource>
 		method.Body!.Title = method.Name.ToTitleCase();
 
 		Definition.Build();
+		_methodList.Refresh();
 	}
 
 	private void AddEventDialog( Button source )
@@ -132,6 +132,7 @@ public class ComponentDefinitionEditor : BaseResourceEditor<ComponentResource>
 		evnt.Title = evnt.Name.ToTitleCase();
 
 		Definition.Build();
+		_eventList.Refresh();
 	}
 
 	private void OverrideMethodDialog( Button source )
@@ -148,6 +149,7 @@ public class ComponentDefinitionEditor : BaseResourceEditor<ComponentResource>
 				method.Body!.Title = name.ToTitleCase();
 
 				Definition.Build();
+				_methodList.Refresh();
 			} );
 		}
 

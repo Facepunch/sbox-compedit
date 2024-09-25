@@ -31,14 +31,19 @@ public class ComponentMethodList : GridLayout
 
 	public void Initialize( SerializedProperty target )
 	{
-		Clear( true );
-
-		_rows = 0;
-
 		_target = target;
 		_targetList = target.TryGetAsObject( out var list ) && list is SerializedCollection collection
 			? collection
 			: throw new Exception();
+
+		Refresh();
+	}
+
+	public void Refresh()
+	{
+		Clear( true );
+
+		_rows = 0;
 
 		if ( !_targetList.Any() )
 		{
@@ -99,6 +104,7 @@ public class ComponentMethodList : GridLayout
 			if ( _targetList.Remove( property ) )
 			{
 				_editor.Definition.Build();
+				Refresh();
 			}
 		} ) );
 	}

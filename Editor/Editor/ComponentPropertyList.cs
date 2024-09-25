@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Sandbox;
+using static Sandbox.PhysicsContact;
 
 namespace Editor.ActionGraphs;
 
@@ -27,14 +28,19 @@ public class ComponentPropertyList : GridLayout
 
 	public void Initialize( SerializedProperty target )
 	{
+		_target = target;
+		_targetList = _target.TryGetAsObject( out var list ) && list is SerializedCollection collection
+			? collection
+			: throw new Exception();
+
+		Refresh();
+	}
+
+	public void Refresh()
+	{
 		Clear( true );
 
 		_rows = 0;
-
-		_target = target;
-		_targetList = target.TryGetAsObject( out var list ) && list is SerializedCollection collection
-			? collection
-			: throw new Exception();
 
 		if ( !_targetList.Any() )
 		{
@@ -120,6 +126,7 @@ public class ComponentPropertyList : GridLayout
 			if ( _targetList.Remove( property ) )
 			{
 				_editor.Definition.Build();
+				Refresh();
 			}
 		} ) );
 	}
