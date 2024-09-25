@@ -20,13 +20,15 @@ partial class ComponentDefinition
 
 		var definition = Get( componentResource );
 		var matchingMethod = definition.Methods
-			.FirstOrDefault( x => x.Body == graph );
+			.FirstOrDefault( x => graph.Guid.Equals( x.BodyGuid ) );
 
 		if ( matchingMethod is null )
 		{
 			Log.Warning( $"Can't find matching method for graph {graph.Title} in resource {resource.ResourcePath}!" );
 			return;
 		}
+
+		matchingMethod.Body = graph;
 
 		definition.Build();
 	}

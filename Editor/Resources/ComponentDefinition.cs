@@ -229,6 +229,9 @@ public partial class ComponentMethodDefinition : IMemberNameProvider
 	private JsonNode? _serializedGraph;
 
 	[Hide]
+	public Guid BodyGuid => _graph?.Guid ?? _serializedGraph?["__guid"]?.GetValue<Guid>() ?? Guid.Empty;
+
+	[Hide]
 	public JsonNode? SerializedBody
 	{
 		get
