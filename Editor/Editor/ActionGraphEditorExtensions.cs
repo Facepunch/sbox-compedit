@@ -56,7 +56,7 @@ public static class ActionGraphEditorExtensions
 
 				if ( compDef.Properties.FirstOrDefault( x => x.Name == name ) is not { } property )
 				{
-					property = compDef.AddProperty( eventArgs.NodeOutput.PropertyType );
+					property = compDef.AddProperty( eventArgs.TargetPlug.PropertyType );
 					property.Title = name;
 
 					needsRebuild = true;
@@ -64,7 +64,7 @@ public static class ActionGraphEditorExtensions
 
 				var nodeType = new LocalInstanceNodeType( CreatePropertyNodeType( property ), null! );
 
-				eventArgs.View.CreateNewNode( nodeType, eventArgs.ClickPos, eventArgs.NodeOutput );
+				eventArgs.View.CreateNewNode( nodeType, eventArgs.ClickPos, eventArgs.TargetPlug );
 
 				if ( needsRebuild )
 				{
