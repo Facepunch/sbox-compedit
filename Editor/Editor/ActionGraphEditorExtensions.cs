@@ -16,7 +16,7 @@ public static class ActionGraphEditorExtensions
 
 	public static ComponentDefinition GetComponentDefinition( this ActionGraph graph )
 	{
-		return graph.SourceLocation is not SourceLocation { Resource: ComponentResource resource } ? null : ComponentDefinition.Get( resource );
+		return graph.SourceLocation is not GameResourceSourceLocation { Resource: ComponentResource resource } ? null : ComponentDefinition.Get( resource );
 	}
 
 	public static ComponentPropertyDefinition GetInputPropertyDefinition( this ActionInputPlug plug )
@@ -62,7 +62,7 @@ public static class ActionGraphEditorExtensions
 					needsRebuild = true;
 				}
 
-				var nodeType = new LocalInstanceNodeType( CreatePropertyNodeType( property ), null! );
+				var nodeType = new LocalTargetNodeType( CreatePropertyNodeType( property ), null! );
 
 				eventArgs.View.CreateNewNode( nodeType, eventArgs.ClickPos, eventArgs.TargetPlug );
 
