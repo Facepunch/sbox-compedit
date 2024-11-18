@@ -34,6 +34,20 @@ public static class ActionGraphEditorExtensions
 		return componentDef?.Properties.FirstOrDefault( x => x.Name == name );
 	}
 
+	[Event( GetEditorPropertiesEvent.EventName )]
+	public static void OnGetEditorProperties( GetEditorPropertiesEvent eventArgs )
+	{
+		if ( eventArgs.EditorGraph.GetComponentResource() is not { } compDef )
+		{
+			return;
+		}
+
+		if ( compDef.Methods.Any( x => !x.Override && x.BodyGuid == eventArgs.ActionGraph.Guid ) )
+		{
+			eventArgs.CanModifyParameters = true;
+		}
+	}
+
 	[Event( PopulateNodeMenuEvent.EventName )]
 	public static void OnPopulateNodeMenu( PopulateNodeMenuEvent eventArgs )
 	{
