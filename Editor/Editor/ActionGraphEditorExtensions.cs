@@ -198,13 +198,16 @@ public static class ActionGraphEditorExtensions
 				{
 					if ( string.IsNullOrEmpty( value ) ) return;
 
-					_ = eventArgs.View.CreateSubGraph( eventArgs.Nodes, subGraph =>
+					_ = eventArgs.View.CreateSubGraph( eventArgs.Nodes, async subGraph =>
 					{
 						subGraph.Title = value;
 
 						var method = compDef.AddMethod( subGraph );
 
 						compDef.Build();
+
+						await Task.Delay( 500 );
+						await EditorUtility.Projects.WaitForCompiles();
 
 						var node = eventArgs.ActionGraph.AddNode( EditorNodeLibrary.CallMethod );
 
@@ -213,7 +216,7 @@ public static class ActionGraphEditorExtensions
 
 						node.Inputs.Target.SetLink( targetSource );
 
-						return Task.FromResult( node );
+						return node;
 					} );
 				} );
 		};
