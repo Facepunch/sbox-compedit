@@ -356,6 +356,16 @@ partial class ComponentDefinition
 		{
 			var parameter = $"{TypeRef( inputDef.Type )} {inputDef.Name}";
 
+			if ( inputDef.Display.Title is { } title )
+			{
+				parameter = $"[{TypeRef<TitleAttribute>()}( {StringLiteral( title )} )] {parameter}";
+			}
+
+			if ( inputDef.Display.Description is { } desc )
+			{
+				parameter = $"[{TypeRef<DescriptionAttribute>()}( {StringLiteral( desc )} )] {parameter}";
+			}
+
 			if ( inputDef.IsTarget )
 			{
 				delegateParameters.Add( $"[{TypeRef<ActionGraphTargetAttribute>()}] {parameter}" );
