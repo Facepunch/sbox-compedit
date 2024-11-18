@@ -21,11 +21,7 @@ public class ActionGraphComponentTemplate : ComponentTemplate
 		}
 		""";
 
-		var directory = System.IO.Path.GetDirectoryName( path );
-		var fullPath = System.IO.Path.Combine( directory, componentName + Suffix );
-		System.IO.File.WriteAllText( fullPath, content );
-
-		var asset = AssetSystem.RegisterFile( path );
+		var asset = AssetSystem.CreateResource( "comp", path );
 		var resource = asset.LoadResource<ComponentResource>();
 		var def = ComponentDefinition.Get( resource );
 
