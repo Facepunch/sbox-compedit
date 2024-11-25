@@ -14,15 +14,16 @@ public class ActionGraphComponentTemplate : ComponentTemplate
 
 	public override void Create( string componentName, string path )
 	{
-		var content = $$"""
-		{
-			"Title": "{{componentName.ToTitleCase()}}",
-			"Group": "Custom"
-		}
-		""";
-
 		var asset = AssetSystem.CreateResource( "comp", path );
-		var resource = asset.LoadResource<ComponentResource>();
+
+		var resource = new ComponentResource
+		{
+			Title = componentName.ToTitleCase(),
+			Group = "Custom"
+		};
+
+		asset.SaveToDisk( resource );
+
 		var def = ComponentDefinition.Get( resource );
 
 		def.Build();
