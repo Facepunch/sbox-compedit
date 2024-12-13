@@ -106,8 +106,8 @@ public partial class ComponentDefinition : ISourcePathProvider
 
 	public void AddDefaultParameters( ActionGraph body )
 	{
-		var inputSignal = InputDefinition.Signal();
-		var outputSignal = OutputDefinition.Signal();
+		var inputSignal = InputDefinition.PrimarySignal();
+		var outputSignal = OutputDefinition.PrimarySignal();
 		var targetInput = InputDefinition.Target( GeneratedType! );
 
 		body.SetParameters( new[] { inputSignal, targetInput }, new [] { outputSignal } );

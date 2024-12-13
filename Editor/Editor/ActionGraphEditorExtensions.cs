@@ -93,7 +93,7 @@ public static class ActionGraphEditorExtensions
 	{
 		if ( eventArgs.Plug.Type == typeof(Task) 
 			|| eventArgs.EditorGraph.GetComponentResource() is not { } componentDefinition
-			|| eventArgs.ActionGraph.Target is not { } targetSource )
+			|| eventArgs.ActionGraph.TargetOutput is not { } targetSource )
 		{
 			return;
 		}
@@ -181,7 +181,7 @@ public static class ActionGraphEditorExtensions
 	public static void OnPopulateCreateSubGraphMenu( PopulateCreateSubGraphMenuEvent eventArgs )
 	{
 		if ( eventArgs.EditorGraph.GetComponentResource() is not { } compDef 
-			|| eventArgs.ActionGraph.Target is not { } targetSource )
+			|| eventArgs.ActionGraph.TargetOutput is not { } targetSource )
 		{
 			return;
 		}
