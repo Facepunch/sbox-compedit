@@ -90,29 +90,29 @@ partial class ComponentDefinition
 			}
 		}
 
-		switch ( value )
+		return value switch
 		{
-			case null:
-				return "null";
-
-			case string str:
-				return StringLiteral( str );
-
-			case int i:
-				return i.ToString();
-
-			case float f:
-				return $"{f:R}f";
-
-			case bool b:
-				return b ? "true" : "false";
-
-			case Resource res:
-				return $"{TypeRef( typeof(ResourceLibrary) )}.{nameof(ResourceLibrary.Get)}<{TypeRef( value.GetType() )}>( {StringLiteral( res.ResourcePath )} )";
-
-			default:
-				return $"{TypeRef( typeof(Json) )}.{nameof(Json.Deserialize)}<{TypeRef( value.GetType() )}>( {StringLiteral( Json.ToNode( value ) )} )";
-		}
+			null => "null",
+			string str => StringLiteral( str ),
+			int i => i.ToString(),
+			float f => f switch
+			{
+				float.NaN => $"{TypeRef<float>()}.{nameof(float.NaN)}",
+				float.PositiveInfinity => $"{TypeRef<float>()}.{nameof(float.PositiveInfinity)}",
+				float.NegativeInfinity => $"{TypeRef<float>()}.{nameof(float.NegativeInfinity)}",
+				_ => $"{f:R}f",
+			},
+			double d => d switch
+			{
+				double.NaN => $"{TypeRef<double>()}.{nameof( double.NaN )}",
+				double.PositiveInfinity => $"{TypeRef<double>()}.{nameof( double.PositiveInfinity )}",
+				double.NegativeInfinity => $"{TypeRef<double>()}.{nameof( double.NegativeInfinity )}",
+				_ => $"{d:R}d",
+			},
+			bool b => b ? "true" : "false",
+			Resource res => $"{TypeRef( typeof(ResourceLibrary) )}.{nameof(ResourceLibrary.Get)}<{TypeRef( value.GetType() )}>( {StringLiteral( res.ResourcePath )} )",
+			_ => $"{TypeRef( typeof(Json) )}.{nameof(Json.Deserialize)}<{TypeRef( value.GetType() )}>( {StringLiteral( Json.ToNode( value ) )} )"
+		};
 	}
 
 	public void Build()
