@@ -88,7 +88,6 @@ partial class ComponentMethodDefinition
 
 		JsonObject node;
 
-		using ( EditorNodeLibrary.Push() )
 		using ( ComponentDefinition.Resource.PushSerializationScopeInternal() )
 		{
 			node = JsonSerializer.SerializeToNode( _graph, EditorJsonOptions )!.AsObject();
@@ -111,7 +110,6 @@ partial class ComponentMethodDefinition
 
 		var node = _serializedGraph;
 
-		using ( EditorNodeLibrary.Push() )
 		using ( ComponentDefinition.Resource.PushSerializationScopeInternal() )
 		{
 			if ( OverrideMethod is { } method )
